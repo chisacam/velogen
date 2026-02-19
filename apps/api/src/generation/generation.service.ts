@@ -51,6 +51,42 @@ export class GenerationService {
     tone?: string,
     format?: string
   ): Promise<BlogPostResult> {
+    const prepared = await this.prepareGenerationContext(sessionId, tone, format);
+    const generatedBody =
+      provider === "mock"
+        ? this.mockGenerate(prepared.prompt, prepared.items)
+        : await this.agentRunnerService.run(prepared.prompt, provider);
+
+    return this.persistGeneratedPost(sessionId, prepared.session.title, provider, generatedBody);
+  }
+
+  async generateFromSessionStream(
+    sessionId: string,
+    provider: AgentProvider,
+    tone: string | undefined,
+    format: string | undefined,
+    onChunk: (chunk: string) => void
+  ): Promise<BlogPostResult> {
+    const prepared = await this.prepareGenerationContext(sessionId, tone, format);
+    const generatedBody =
+      provider === "mock"
+        ? this.mockGenerate(prepared.prompt, prepared.items)
+        : await this.agentRunnerService.runStream(prepared.prompt, provider, onChunk);
+
+    if (provider === "mock") {
+      for (const line of generatedBody.split("\n")) {
+        onChunk(`${line}\n`);
+      }
+    }
+
+    return this.persistGeneratedPost(sessionId, prepared.session.title, provider, generatedBody);
+  }
+
+  private async prepareGenerationContext(sessionId: string, tone?: string, format?: string): Promise<{
+    session: SessionInfo;
+    items: ContentItemRow[];
+    prompt: string;
+  }> {
     const session = this.databaseService.connection
       .prepare("SELECT id, title, tone, format FROM sessions WHERE id = ?")
       .get(sessionId) as SessionInfo | undefined;
@@ -80,11 +116,16 @@ export class GenerationService {
     const requestedTone = tone ?? session.tone ?? "기본 톤";
     const requestedFormat = format ?? session.format ?? "기본 기술 블로그 형식";
     const prompt = this.buildPrompt(session.title, requestedTone, requestedFormat, items);
-    const generatedBody =
-      provider === "mock"
-        ? this.mockGenerate(prompt, items)
-        : await this.agentRunnerService.run(prompt, provider);
 
+    return { session, items, prompt };
+  }
+
+  private persistGeneratedPost(
+    sessionId: string,
+    title: string,
+    provider: AgentProvider,
+    generatedBody: string
+  ): BlogPostResult {
     const postId = uuidv4();
     const createdAt = new Date().toISOString();
     const status = "draft";
@@ -93,17 +134,17 @@ export class GenerationService {
       .prepare(
         "INSERT INTO blog_posts (id, session_id, title, body, provider, created_at, updated_at, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
       )
-      .run(postId, sessionId, session.title, generatedBody, provider, createdAt, createdAt, status);
+      .run(postId, sessionId, title, generatedBody, provider, createdAt, createdAt, status);
 
     this.databaseService.connection
       .prepare(
         "INSERT INTO blog_post_revisions (id, post_id, version, title, body, status, source, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
       )
-      .run(uuidv4(), postId, 1, session.title, generatedBody, status, "generated", createdAt);
+      .run(uuidv4(), postId, 1, title, generatedBody, status, "generated", createdAt);
 
     return {
       id: postId,
-      title: session.title,
+      title,
       body: generatedBody,
       provider,
       status,
@@ -123,14 +164,13 @@ export class GenerationService {
       `톤/문체 요청: ${tone}`,
       `형식 요청: ${format}`,
       "목표: 엔지니어링 회고형 테크 블로그를 작성합니다.",
-      "규칙: 사실은 반드시 Evidence ID([C#])로 근거를 달고, 근거 없는 주장을 금지합니다.",
+      "규칙: 반드시 입력된 소스를 기반으로 글을 작성하고, 소스에 없는 내용을 추가하지 않습니다.",
       "출력 형식(반드시 Markdown):",
       "1) Executive Summary",
       "2) Timeline Review",
       "3) Thematic Insights",
       "4) Decisions & Trade-offs",
       "5) Next Iteration Plan",
-      "6) Evidence Mapping (문단별 [C#] 근거)",
       "",
       "[TIMELINE INPUT]",
       timeline,
@@ -141,7 +181,6 @@ export class GenerationService {
       "[WRITING GUIDELINES]",
       "- chronology를 유지하되, 독자가 이해하기 쉽게 문제-시도-결과-학습 흐름으로 재구성합니다.",
       "- commit/notion 원문을 복붙하지 말고 의미를 통합 요약합니다.",
-      "- 각 핵심 주장 끝에는 [C#] 인용을 붙입니다.",
       "- 마지막에 후속 액션 아이템을 실행 가능한 checklist로 작성합니다."
     ].join("\n\n");
 
@@ -161,7 +200,6 @@ export class GenerationService {
       `형식 요청: ${format}`,
       "입력 데이터가 길어 압축 모드로 전환되었습니다.",
       "핵심 사건과 의사결정 맥락을 우선으로 회고 글을 작성하세요.",
-      "모든 주장에는 [C#] 근거를 붙이세요.",
       "",
       "[COMPACT EVIDENCE INPUT]",
       ...compactItems.map(

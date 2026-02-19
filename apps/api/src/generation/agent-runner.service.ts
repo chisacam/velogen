@@ -51,6 +51,36 @@ export class AgentRunnerService {
     }
   }
 
+  async runStream(
+    prompt: string,
+    provider: Exclude<AgentProvider, "mock">,
+    onChunk: (chunk: string) => void
+  ): Promise<string> {
+    const { command, args } = this.resolveCommand(provider);
+
+    this.logger.log(`[${provider}] Running(stream): ${command} ${args.join(" ")}`);
+
+    try {
+      const output = await this.spawnWithStdin(command, args, prompt, onChunk);
+
+      if (output.length === 0) {
+        this.logger.warn(`[${provider}] Empty output, falling back to mock`);
+        const fallback = this.fallback(prompt, provider);
+        onChunk(fallback);
+        return fallback;
+      }
+
+      return output;
+    } catch (error) {
+      this.logger.warn(
+        `[${provider}] Stream failed — ${error instanceof Error ? error.message : String(error)}`
+      );
+      const fallback = this.fallback(prompt, provider);
+      onChunk(fallback);
+      return fallback;
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // Private helpers
   // ---------------------------------------------------------------------------
@@ -87,7 +117,7 @@ export class AgentRunnerService {
          * `--quiet` 는 진행 상태 메시지를 억제합니다.
          */
         const command = process.env.CODEX_COMMAND ?? "codex";
-        const args = ["--approval-mode", "full-auto", "--quiet"];
+        const args = ["exec", "--full-auto"];
         const model = process.env.CODEX_MODEL;
         if (model) args.push("--model", model);
         return { command, args };
@@ -111,7 +141,12 @@ export class AgentRunnerService {
    * 자식 프로세스를 생성하고 stdin으로 입력을 전달한 뒤 stdout을 수집합니다.
    * 타임아웃은 5분입니다.
    */
-  private spawnWithStdin(command: string, args: string[], input: string): Promise<string> {
+  private spawnWithStdin(
+    command: string,
+    args: string[],
+    input: string,
+    onChunk?: (chunk: string) => void
+  ): Promise<string> {
     return new Promise((resolve, reject) => {
       const child = spawn(command, args, {
         stdio: ["pipe", "pipe", "pipe"],
@@ -136,7 +171,11 @@ export class AgentRunnerService {
       }, 300_000);
 
       child.stdout.on("data", (chunk: Buffer) => {
-        stdout += chunk.toString("utf8");
+        const text = chunk.toString("utf8");
+        stdout += text;
+        if (onChunk && text.length > 0) {
+          onChunk(text);
+        }
       });
 
       child.stderr.on("data", (chunk: Buffer) => {
@@ -147,6 +186,9 @@ export class AgentRunnerService {
         clearTimeout(timer);
         // stdout 우선, 없으면 stderr 사용 (일부 CLI는 stderr로 출력)
         const output = (stdout.trim().length > 0 ? stdout : stderr).trim();
+        if (onChunk && stdout.trim().length === 0 && output.length > 0) {
+          onChunk(output);
+        }
         if (code === 0) {
           settle(() => resolve(output));
         } else {

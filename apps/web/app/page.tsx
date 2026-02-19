@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AgentProvider, SourceSummary, SourceType } from "@velogen/shared";
 import { MarkdownEditor } from "../components/markdown-editor";
 import { MarkdownViewer } from "../components/markdown-viewer";
@@ -51,6 +51,16 @@ interface PostRevisionDetail extends PostRevision {
   body: string;
 }
 
+type WorkspacePanel = "session" | "sources" | "posts" | "editor";
+
+type ToastKind = "info" | "success" | "error";
+
+interface ToastMessage {
+  id: string;
+  message: string;
+  kind: ToastKind;
+}
+
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
 
 async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
@@ -95,10 +105,16 @@ export default function HomePage() {
   const [generatedPost, setGeneratedPost] = useState<GeneratedPost | null>(null);
   const [selectedPostId, setSelectedPostId] = useState("");
   const [editorMode, setEditorMode] = useState<"edit" | "preview" | "split">("split");
+  const [activePanel, setActivePanel] = useState<WorkspacePanel>("session");
+  const [expandedMenu, setExpandedMenu] = useState<WorkspacePanel | null>("session");
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [flashHeading, setFlashHeading] = useState(false);
+  const [flashCitation, setFlashCitation] = useState(false);
   const [postTitleDraft, setPostTitleDraft] = useState("");
   const [postBodyDraft, setPostBodyDraft] = useState("");
   const [postStatusDraft, setPostStatusDraft] = useState<"draft" | "published">("draft");
   const [revisions, setRevisions] = useState<PostRevision[]>([]);
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [sessionTitle, setSessionTitle] = useState("Weekly Engineering Digest");
   const [tone, setTone] = useState("");
   const [format, setFormat] = useState("");
@@ -113,7 +129,30 @@ export default function HomePage() {
   const [notionToken, setNotionToken] = useState("");
   const [notionMonths, setNotionMonths] = useState("3");
   const [status, setStatus] = useState("Ready");
+  const streamRef = useRef<EventSource | null>(null);
+  const streamParseErrorNotifiedRef = useRef(false);
+  const previousHeadingCountRef = useRef(0);
+  const previousCitationCountRef = useRef(0);
   const selectedSession = useMemo(() => sessions.find((item) => item.id === selectedSessionId) ?? null, [sessions, selectedSessionId]);
+  const navItems: Array<{ key: WorkspacePanel; icon: string; label: string; hint: string }> = [
+    { key: "session", icon: "S", label: "Session", hint: selectedSession?.title ?? "No active session" },
+    { key: "sources", icon: "R", label: "Sources", hint: `${sources.length} in pool / ${sessionSources.length} attached` },
+    { key: "posts", icon: "P", label: "Posts", hint: `${posts.length} generated drafts` },
+    { key: "editor", icon: "E", label: "Editor", hint: isGenerating ? "Streaming output..." : "Markdown draft studio" }
+  ];
+
+  const pushToast = useCallback((message: string, kind: ToastKind = "info") => {
+    const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    setToasts((current) => [...current, { id, message, kind }]);
+    setTimeout(() => {
+      setToasts((current) => current.filter((toast) => toast.id !== id));
+    }, 3200);
+  }, []);
+
+  const setPanel = useCallback((panel: WorkspacePanel) => {
+    setActivePanel(panel);
+    setExpandedMenu((current) => (current === panel ? null : panel));
+  }, []);
 
   const refreshSources = useCallback(async (): Promise<void> => {
     const data = await apiRequest<SourceSummary[]>("/sources");
@@ -205,6 +244,33 @@ export default function HomePage() {
     })();
   }, [loadPost, selectedPostId, selectedSessionId]);
 
+  useEffect(() => {
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.close();
+        streamRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    const headingCount = (postBodyDraft.match(/^#{1,6}\s+/gm) ?? []).length;
+    const citationCount = (postBodyDraft.match(/\[C\d+\]/g) ?? []).length;
+
+    if (headingCount > previousHeadingCountRef.current) {
+      setFlashHeading(true);
+      setTimeout(() => setFlashHeading(false), 900);
+    }
+
+    if (citationCount > previousCitationCountRef.current) {
+      setFlashCitation(true);
+      setTimeout(() => setFlashCitation(false), 900);
+    }
+
+    previousHeadingCountRef.current = headingCount;
+    previousCitationCountRef.current = citationCount;
+  }, [postBodyDraft]);
+
   const onCreateSession = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
     setStatus("Creating session...");
@@ -215,7 +281,9 @@ export default function HomePage() {
       });
       await refreshSessions();
       setSelectedSessionId(created.id);
+      setPanel("session");
       setStatus("Session created");
+      pushToast("Session created", "success");
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Failed to create session");
     }
@@ -375,25 +443,123 @@ export default function HomePage() {
   const onGenerate = async (): Promise<void> => {
     if (!selectedSessionId) {
       setStatus("Create or select a session first");
+      pushToast("Create or select a session first", "error");
       return;
     }
 
-    setStatus("Generating blog post...");
-    try {
-      const post = await apiRequest<GeneratedPost>(`/sessions/${selectedSessionId}/generate`, {
-        method: "POST",
-        body: JSON.stringify({ provider, tone: tone || undefined, format: format || undefined })
-      });
-      setGeneratedPost(post);
-      setSelectedPostId(post.id);
-      setPostTitleDraft(post.title);
-      setPostBodyDraft(post.body);
-      setPostStatusDraft(post.status);
-      await refreshSessionDetails(selectedSessionId);
-      setStatus("Blog post generated");
-    } catch (error) {
-      setStatus(error instanceof Error ? error.message : "Failed to generate");
+    if (streamRef.current) {
+      streamRef.current.close();
+      streamRef.current = null;
     }
+
+    setPanel("editor");
+    setIsGenerating(true);
+    setGeneratedPost(null);
+    setSelectedPostId("");
+    setPostStatusDraft("draft");
+    setPostTitleDraft(selectedSession?.title ?? "Streaming Draft");
+    setPostBodyDraft("");
+    setStatus("Generating blog post...");
+    pushToast("Generation started", "info");
+
+    if (typeof window === "undefined" || !("EventSource" in window)) {
+      try {
+        const post = await apiRequest<GeneratedPost>(`/sessions/${selectedSessionId}/generate`, {
+          method: "POST",
+          body: JSON.stringify({ provider, tone: tone || undefined, format: format || undefined })
+        });
+        setGeneratedPost(post);
+        setSelectedPostId(post.id);
+        setPostTitleDraft(post.title);
+        setPostBodyDraft(post.body);
+        setPostStatusDraft(post.status);
+        await refreshSessionDetails(selectedSessionId);
+        setStatus("Blog post generated");
+        pushToast("Blog post generated", "success");
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Failed to generate";
+        setStatus(message);
+        pushToast(message, "error");
+      } finally {
+        setIsGenerating(false);
+      }
+      return;
+    }
+
+    const params = new URLSearchParams({ provider });
+    if (tone.trim().length > 0) {
+      params.set("tone", tone);
+    }
+    if (format.trim().length > 0) {
+      params.set("format", format);
+    }
+
+    let completed = false;
+    const stream = new EventSource(`${API_BASE}/sessions/${selectedSessionId}/generate/stream?${params.toString()}`);
+    streamRef.current = stream;
+    streamParseErrorNotifiedRef.current = false;
+
+    stream.onmessage = (event) => {
+      try {
+        const payload = JSON.parse(event.data) as
+          | { type: "status"; message: string }
+          | { type: "chunk"; chunk: string }
+          | { type: "complete"; post: GeneratedPost }
+          | { type: "error"; message: string };
+
+        if (payload.type === "status") {
+          setStatus(payload.message);
+          return;
+        }
+
+        if (payload.type === "chunk") {
+          setPostBodyDraft((current) => current + payload.chunk);
+          return;
+        }
+
+        if (payload.type === "complete") {
+          completed = true;
+          stream.close();
+          streamRef.current = null;
+          setGeneratedPost(payload.post);
+          setSelectedPostId(payload.post.id);
+          setPostTitleDraft(payload.post.title);
+          setPostStatusDraft(payload.post.status);
+          setStatus("Blog post generated");
+          pushToast("Blog post generated", "success");
+          void refreshSessionDetails(selectedSessionId);
+          setIsGenerating(false);
+          return;
+        }
+
+        if (payload.type === "error") {
+          completed = true;
+          stream.close();
+          streamRef.current = null;
+          setStatus(payload.message);
+          pushToast(payload.message, "error");
+          setIsGenerating(false);
+        }
+      } catch {
+        if (!streamParseErrorNotifiedRef.current) {
+          streamParseErrorNotifiedRef.current = true;
+          setStatus("Received malformed stream payload");
+          pushToast("Received malformed stream payload", "error");
+        }
+      }
+    };
+
+    stream.onerror = () => {
+      if (completed) {
+        return;
+      }
+
+      stream.close();
+      streamRef.current = null;
+      setIsGenerating(false);
+      setStatus("Streaming disconnected");
+      pushToast("Streaming disconnected", "error");
+    };
   };
 
   const onSavePost = async (): Promise<void> => {
@@ -411,9 +577,12 @@ export default function HomePage() {
       setGeneratedPost(updated);
       await refreshSessionDetails(selectedSessionId);
       await loadPost(selectedSessionId, selectedPostId);
+      setPanel("editor");
       setStatus("Draft saved");
+      pushToast("Draft saved", "success");
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Failed to save post");
+      pushToast(error instanceof Error ? error.message : "Failed to save post", "error");
     }
   };
 
@@ -431,296 +600,353 @@ export default function HomePage() {
       setPostTitleDraft(revision.title);
       setPostBodyDraft(revision.body);
       setPostStatusDraft(revision.status);
+      setPanel("editor");
       setStatus(`Loaded revision v${revision.version}. Save to apply rollback.`);
+      pushToast(`Loaded revision v${revision.version}`, "info");
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Failed to load revision");
     }
   };
 
   return (
-    <main className="canvas">
-      <section className="hero card">
-        <p className="eyebrow">velogen</p>
-        <h1>Commit + Notion Blog Studio</h1>
-        <p>
-          Repo 커밋과 Notion 콘텐츠를 함께 묶어 한 번에 블로그로 생성합니다. 기간 기본값은 3개월, 작성자 필터는 기본적으로 비활성입니다.
-        </p>
-        <p className="status">Status: {status}</p>
-      </section>
-
-      <section className="grid two">
-        <div className="card">
-          <h2>Create Session</h2>
-          <form onSubmit={onCreateSession} className="form">
-            <label>
-              Session Title
-              <input value={sessionTitle} onChange={(event) => setSessionTitle(event.target.value)} required />
-            </label>
-            <button type="submit">Create Session</button>
-          </form>
+    <main className="appShell">
+      <aside className="sideNav card">
+        <div className="brandBlock">
+          <p className="eyebrow">velogen</p>
+          <h1>Blog Studio</h1>
+          <p className="status">{status}</p>
         </div>
 
-        <div className="card">
-          <h2>Session Control</h2>
-          <label>
-            Active Session
-            <select value={selectedSessionId} onChange={(event) => setSelectedSessionId(event.target.value)}>
-              <option value="">Select session</option>
-              {sessions.map((session) => (
-                <option key={session.id} value={session.id}>
-                  {session.title}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Tone / Style
-            <input
-              value={tone}
-              onChange={(event) => setTone(event.target.value)}
-              placeholder={selectedSession?.tone ?? "예: 차분한 회고형, 직설적 기술 설명"}
-            />
-          </label>
-          <label>
-            Format
-            <input
-              value={format}
-              onChange={(event) => setFormat(event.target.value)}
-              placeholder={selectedSession?.format ?? "예: 문제-해결-회고 3단 구조"}
-            />
-          </label>
-          <label>
-            Generator
-            <select
-              id="provider-select"
-              value={provider}
-              onChange={(event) => setProvider(event.target.value as AgentProvider)}
-            >
-              <option value="mock">🤖 Mock (로컬 테스트, 설치 불필요)</option>
-              <option value="claude">🧠 Claude (claude-code CLI)</option>
-              <option value="codex">⚡ Codex (OpenAI Codex CLI)</option>
-              <option value="opencode">🛠 Opencode</option>
-            </select>
-          </label>
-          {provider !== "mock" && (
-            <div className="hint">
-              {provider === "claude" && (
-                <>
-                  <strong>Claude 설정</strong>: <code>npm i -g @anthropic-ai/claude-code</code> 설치 후
-                  {" "}<code>claude --print</code> 동작을 확인하세요.<br />
-                  <strong>MCP 연동</strong>: Claude는 <code>~/.claude/claude_desktop_config.json</code>{" "}
-                  또는 프로젝트 루트 <code>.mcp.json</code>에 설정한 MCP 서버를 자동으로 사용합니다.
-                  서버 재시작 없이 해당 파일을 수정하면 다음 생성부터 반영됩니다.
-                </>
-              )}
-              {provider === "codex" && (
-                <>
-                  <strong>Codex 설정</strong>: OpenAI Codex CLI를 설치하고
-                  {" "}<code>OPENAI_API_KEY</code> 환경변수를 설정하세요.
-                  서버의 <code>.env</code>에 <code>CODEX_MODEL=o4-mini</code>로 모델을 지정할 수 있습니다.
-                </>
-              )}
-              {provider === "opencode" && (
-                <>
-                  <strong>Opencode 설정</strong>: Opencode를 설치하고 PATH에 등록하세요.
-                  서버의 <code>.env</code>에 <code>OPENCODE_MODEL=anthropic/claude-sonnet-4-5</code>로
-                  모델을 지정할 수 있습니다.
-                </>
+        <nav className="menuList">
+          {navItems.map((item) => {
+            const opened = expandedMenu === item.key;
+            const active = activePanel === item.key;
+            return (
+              <div key={item.key} className={opened ? "accordionItem open" : "accordionItem"}>
+                <button
+                  type="button"
+                  className={active ? "menuItem active" : "menuItem"}
+                  onClick={() => {
+                    setPanel(item.key);
+                  }}
+                >
+                  <span className="menuIcon" aria-hidden="true">
+                    {item.icon}
+                  </span>
+                  <span>{item.label}</span>
+                  <span className="menuChevron" aria-hidden="true">
+                    {opened ? "-" : "+"}
+                  </span>
+                </button>
+                {opened ? <p className="accordionHint">{item.hint}</p> : null}
+              </div>
+            );
+          })}
+        </nav>
+
+        <div className="sideMeta">
+          <strong>Active Session</strong>
+          <p>{selectedSession?.title ?? "No session selected"}</p>
+          <strong>Attached Sources</strong>
+          <p>{sessionSources.length}</p>
+          <strong>Generated Posts</strong>
+          <p>{posts.length}</p>
+        </div>
+      </aside>
+
+      <section className="workspace">
+        <header className="workspaceHeader card">
+          <h2>
+            {activePanel === "session" && "Session & Generation"}
+            {activePanel === "sources" && "Source Management"}
+            {activePanel === "posts" && "Post List"}
+            {activePanel === "editor" && "Markdown Editor & Preview"}
+          </h2>
+          <p>왼쪽 메뉴에서 작업 영역을 전환하세요. 에디터는 실시간으로 미리보기를 반영합니다.</p>
+        </header>
+
+        {toasts.length > 0 ? (
+          <div className="toastStack">
+            {toasts.map((toast) => (
+              <div key={toast.id} className={`toastItem ${toast.kind}`}>
+                {toast.message}
+              </div>
+            ))}
+          </div>
+        ) : null}
+
+        {activePanel === "session" ? (
+          <div className="workspaceBody card">
+            <div className="grid two">
+              <div>
+                <h3>Create Session</h3>
+                <form onSubmit={onCreateSession} className="form">
+                  <label>
+                    Session Title
+                    <input value={sessionTitle} onChange={(event) => setSessionTitle(event.target.value)} required />
+                  </label>
+                  <button type="submit">Create Session</button>
+                </form>
+              </div>
+
+              <div>
+                <h3>Session Control</h3>
+                <label>
+                  Active Session
+                  <select value={selectedSessionId} onChange={(event) => setSelectedSessionId(event.target.value)}>
+                    <option value="">Select session</option>
+                    {sessions.map((session) => (
+                      <option key={session.id} value={session.id}>
+                        {session.title}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Tone / Style
+                  <input
+                    value={tone}
+                    onChange={(event) => setTone(event.target.value)}
+                    placeholder={selectedSession?.tone ?? "예: 차분한 회고형, 직설적 기술 설명"}
+                  />
+                </label>
+                <label>
+                  Format
+                  <input
+                    value={format}
+                    onChange={(event) => setFormat(event.target.value)}
+                    placeholder={selectedSession?.format ?? "예: 문제-해결-회고 3단 구조"}
+                  />
+                </label>
+                <label>
+                  Generator
+                  <select id="provider-select" value={provider} onChange={(event) => setProvider(event.target.value as AgentProvider)}>
+                    <option value="mock">🤖 Mock (로컬 테스트)</option>
+                    <option value="claude">🧠 Claude</option>
+                    <option value="codex">⚡ Codex</option>
+                    <option value="opencode">🛠 Opencode</option>
+                  </select>
+                </label>
+                <div className="row">
+                  <button type="button" onClick={onUpdateConfig}>
+                    Save Options
+                  </button>
+                  <button type="button" className="ghost" onClick={() => void onDeleteSession()}>
+                    Delete Session
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {activePanel === "sources" ? (
+          <div className="workspaceBody card">
+            <div className="grid two">
+              <div>
+                <h3>Add Repo Source</h3>
+                <form onSubmit={onCreateRepoSource} className="form">
+                  <label>
+                    Source Name
+                    <input value={repoName} onChange={(event) => setRepoName(event.target.value)} required />
+                  </label>
+                  <label>
+                    Local Repo Path
+                    <input value={repoPath} onChange={(event) => setRepoPath(event.target.value)} placeholder="/Users/name/project" />
+                  </label>
+                  <label>
+                    Remote Repo URL
+                    <input value={repoUrl} onChange={(event) => setRepoUrl(event.target.value)} placeholder="https://github.com/org/repo.git" />
+                  </label>
+                  <label>
+                    Since Months
+                    <input value={repoMonths} onChange={(event) => setRepoMonths(event.target.value)} type="number" min={1} />
+                  </label>
+                  <label>
+                    Committers
+                    <input value={repoCommitters} onChange={(event) => setRepoCommitters(event.target.value)} placeholder="alice,bob" />
+                  </label>
+                  <button type="submit">Save Repo Source</button>
+                </form>
+              </div>
+
+              <div>
+                <h3>Add Notion Source</h3>
+                <form onSubmit={onCreateNotionSource} className="form">
+                  <label>
+                    Source Name
+                    <input value={notionName} onChange={(event) => setNotionName(event.target.value)} required />
+                  </label>
+                  <label>
+                    Notion Page ID
+                    <input value={notionPageId} onChange={(event) => setNotionPageId(event.target.value)} required />
+                  </label>
+                  <label>
+                    Notion Token
+                    <input value={notionToken} onChange={(event) => setNotionToken(event.target.value)} required />
+                  </label>
+                  <label>
+                    Since Months
+                    <input value={notionMonths} onChange={(event) => setNotionMonths(event.target.value)} type="number" min={1} />
+                  </label>
+                  <button type="submit">Save Notion Source</button>
+                </form>
+              </div>
+            </div>
+
+            <h3>Source Pool</h3>
+            <div className="tableLike">
+              {sources.length === 0 ? (
+                <p>No sources yet.</p>
+              ) : (
+                sources.map((source) => {
+                  const attached = sessionSources.some((sessionSource) => sessionSource.sourceId === source.id);
+                  return (
+                    <div key={source.id} className="entry">
+                      <div>
+                        <strong>{source.name}</strong>
+                        <p>
+                          {source.type} / {source.id}
+                        </p>
+                      </div>
+                      <div className="row">
+                        {attached ? (
+                          <button type="button" onClick={() => void onDetachSource(source.id)}>
+                            Detach
+                          </button>
+                        ) : (
+                          <button type="button" onClick={() => void onAttachSource(source.id)}>
+                            Attach
+                          </button>
+                        )}
+                        <button type="button" className="ghost" onClick={() => void onDeleteSource(source.id)}>
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
               )}
             </div>
-          )}
-          <div className="row">
-            <button type="button" onClick={onUpdateConfig}>
-              Save Options
-            </button>
-            <button type="button" onClick={onGenerate}>
-              Generate Blog
-            </button>
-            <button type="button" className="ghost" onClick={() => void onDeleteSession()}>
-              Delete Session
-            </button>
-          </div>
-        </div>
-      </section>
 
-      <section className="grid two">
-        <div className="card">
-          <h2>Add Repo Source</h2>
-          <form onSubmit={onCreateRepoSource} className="form">
-            <label>
-              Source Name
-              <input value={repoName} onChange={(event) => setRepoName(event.target.value)} required />
-            </label>
-            <label>
-              Local Repo Path
-              <input value={repoPath} onChange={(event) => setRepoPath(event.target.value)} placeholder="/Users/name/project" />
-            </label>
-            <label>
-              or Remote Repo URL
-              <input value={repoUrl} onChange={(event) => setRepoUrl(event.target.value)} placeholder="https://github.com/org/repo.git" />
-            </label>
-            <label>
-              Since Months (default 3)
-              <input value={repoMonths} onChange={(event) => setRepoMonths(event.target.value)} type="number" min={1} />
-            </label>
-            <label>
-              Committers (comma-separated, optional)
-              <input value={repoCommitters} onChange={(event) => setRepoCommitters(event.target.value)} placeholder="alice,bob" />
-            </label>
-            <button type="submit">Save Repo Source</button>
-          </form>
-        </div>
-
-        <div className="card">
-          <h2>Add Notion Source</h2>
-          <form onSubmit={onCreateNotionSource} className="form">
-            <label>
-              Source Name
-              <input value={notionName} onChange={(event) => setNotionName(event.target.value)} required />
-            </label>
-            <label>
-              Notion Page ID
-              <input value={notionPageId} onChange={(event) => setNotionPageId(event.target.value)} required />
-            </label>
-            <label>
-              Notion Token
-              <input value={notionToken} onChange={(event) => setNotionToken(event.target.value)} required />
-            </label>
-            <label>
-              Since Months (default 3)
-              <input value={notionMonths} onChange={(event) => setNotionMonths(event.target.value)} type="number" min={1} />
-            </label>
-            <button type="submit">Save Notion Source</button>
-          </form>
-        </div>
-      </section>
-
-      <section className="card">
-        <h2>Source Pool</h2>
-        <div className="tableLike">
-          {sources.length === 0 ? (
-            <p>No sources yet.</p>
-          ) : (
-            sources.map((source) => {
-              const attached = sessionSources.some((sessionSource) => sessionSource.sourceId === source.id);
-              return (
-                <div key={source.id} className="entry">
-                  <div>
-                    <strong>{source.name}</strong>
-                    <p>
-                      {source.type} / {source.id}
-                    </p>
-                  </div>
-                  <div className="row">
-                    {attached ? (
-                      <button type="button" onClick={() => void onDetachSource(source.id)}>
-                        Detach
-                      </button>
-                    ) : (
-                      <button type="button" onClick={() => void onAttachSource(source.id)}>
-                        Attach
-                      </button>
-                    )}
-                    <button type="button" className="ghost" onClick={() => void onDeleteSource(source.id)}>
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </div>
-      </section>
-
-      <section className="grid two">
-        <div className="card">
-          <h2>Attached Sources</h2>
-          {sessionSources.length === 0 ? (
-            <p>No attached sources.</p>
-          ) : (
-            <ul>
-              {sessionSources.map((source) => (
-                <li key={source.sourceId} className="entry">
-                  <span>{source.name} ({source.type})</span>
-                  <button type="button" className="tinyButton" onClick={() => void onSyncSource(source.sourceId)}>
-                    Sync
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        <div className="card">
-          <h2>Generated Posts</h2>
-          {posts.length === 0 ? (
-            <p>No posts yet.</p>
-          ) : (
-            <ul>
-              {posts.map((post) => (
-                <li key={post.id}>
-                  <button type="button" className="postLink" onClick={() => setSelectedPostId(post.id)}>
-                    {post.title} - {post.provider} - {post.status} - {new Date(post.updatedAt).toLocaleString()}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </section>
-
-      {generatedPost ? (
-        <section className="card">
-          <h2>Markdown Draft Studio</h2>
-          <label>
-            Title
-            <input value={postTitleDraft} onChange={(event) => setPostTitleDraft(event.target.value)} />
-          </label>
-          <div className="row">
-            <label>
-              Status
-              <select value={postStatusDraft} onChange={(event) => setPostStatusDraft(event.target.value as "draft" | "published")}>
-                <option value="draft">draft</option>
-                <option value="published">published</option>
-              </select>
-            </label>
-            <label>
-              Mode
-              <select value={editorMode} onChange={(event) => setEditorMode(event.target.value as "edit" | "preview" | "split")}>
-                <option value="split">split</option>
-                <option value="edit">edit</option>
-                <option value="preview">preview</option>
-              </select>
-            </label>
-          </div>
-          <div className={`mdPane mode-${editorMode}`}>
-            {editorMode !== "preview" ? <MarkdownEditor value={postBodyDraft} onChange={setPostBodyDraft} /> : null}
-            {editorMode !== "edit" ? <MarkdownViewer content={postBodyDraft} /> : null}
-          </div>
-          <div className="row">
-            <button type="button" onClick={onSavePost}>
-              Save Markdown
-            </button>
-          </div>
-          <div className="revisionPanel">
-            <h3>Revision History</h3>
-            {revisions.length === 0 ? (
-              <p>No revisions yet.</p>
+            <h3>Attached Sources</h3>
+            {sessionSources.length === 0 ? (
+              <p>No attached sources.</p>
             ) : (
               <ul>
-                {revisions.map((revision) => (
-                  <li key={revision.id}>
-                    v{revision.version} - {revision.source} - {revision.status} - {new Date(revision.createdAt).toLocaleString()}
-                    <button type="button" className="tinyButton" onClick={() => void onLoadRevision(revision.id)}>
-                      Load
+                {sessionSources.map((source) => (
+                  <li key={source.sourceId} className="entry">
+                    <span>
+                      {source.name} ({source.type})
+                    </span>
+                    <button type="button" className="tinyButton" onClick={() => void onSyncSource(source.sourceId)}>
+                      Sync
                     </button>
                   </li>
                 ))}
               </ul>
             )}
           </div>
-        </section>
-      ) : null}
+        ) : null}
+
+        {activePanel === "posts" ? (
+          <div className="workspaceBody card">
+            <h3>Generated Posts</h3>
+            {posts.length === 0 ? (
+              <p>No posts yet.</p>
+            ) : (
+              <ul>
+                {posts.map((post) => (
+                  <li key={post.id}>
+                    <button
+                      type="button"
+                      className="postLink"
+                      onClick={() => {
+                        setSelectedPostId(post.id);
+                        setPanel("editor");
+                      }}
+                    >
+                      {post.title} - {post.provider} - {post.status} - {new Date(post.updatedAt).toLocaleString()}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        ) : null}
+
+        {activePanel === "editor" ? (
+          <div className="workspaceBody card">
+            <div className="editorTopBar">
+              <div>
+                <h3>Markdown Draft Studio</h3>
+                <p className="editorHint">
+                  {isGenerating ? "Generating... incoming text is streamed below." : "Generate from session, then refine in markdown."}
+                </p>
+              </div>
+              <div className="row">
+                <button type="button" onClick={onGenerate} disabled={isGenerating}>
+                  {isGenerating ? "Generating..." : "Generate Blog"}
+                </button>
+                <button type="button" onClick={onSavePost} disabled={!selectedPostId || isGenerating}>
+                  Save Markdown
+                </button>
+              </div>
+            </div>
+
+            {generatedPost || isGenerating ? (
+              <>
+                <label>
+                  Title
+                  <input value={postTitleDraft} onChange={(event) => setPostTitleDraft(event.target.value)} />
+                </label>
+                <div className="row">
+                  <label>
+                    Status
+                    <select value={postStatusDraft} onChange={(event) => setPostStatusDraft(event.target.value as "draft" | "published")}>
+                      <option value="draft">draft</option>
+                      <option value="published">published</option>
+                    </select>
+                  </label>
+                  <label>
+                    Mode
+                    <select value={editorMode} onChange={(event) => setEditorMode(event.target.value as "edit" | "preview" | "split")}>
+                      <option value="split">split</option>
+                      <option value="edit">edit</option>
+                      <option value="preview">preview</option>
+                    </select>
+                  </label>
+                </div>
+                <div className={`mdPane mode-${editorMode}`}>
+                  {editorMode !== "preview" ? <MarkdownEditor value={postBodyDraft} onChange={setPostBodyDraft} /> : null}
+                  {editorMode !== "edit" ? (
+                    <MarkdownViewer content={postBodyDraft} flashHeading={flashHeading} flashCitation={flashCitation} />
+                  ) : null}
+                </div>
+                <div className="revisionPanel">
+                  <h3>Revision History</h3>
+                  {revisions.length === 0 ? (
+                    <p>No revisions yet.</p>
+                  ) : (
+                    <ul>
+                      {revisions.map((revision) => (
+                        <li key={revision.id}>
+                          v{revision.version} - {revision.source} - {revision.status} - {new Date(revision.createdAt).toLocaleString()}
+                          <button type="button" className="tinyButton" onClick={() => void onLoadRevision(revision.id)}>
+                            Load
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </>
+            ) : (
+              <p>생성된 글이 없습니다. Session에서 Generate Blog를 실행하거나 Posts에서 글을 선택하세요.</p>
+            )}
+          </div>
+        ) : null}
+      </section>
     </main>
   );
 }

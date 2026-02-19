@@ -105,6 +105,24 @@ export class SessionsService {
     return this.generationService.generateFromSession(sessionId, provider, tone, format);
   }
 
+  async generateStream(
+    sessionId: string,
+    provider: AgentProvider,
+    tone: string | undefined,
+    format: string | undefined,
+    onChunk: (chunk: string) => void
+  ) {
+    this.assertSessionExists(sessionId);
+    const sourceCountRow = this.databaseService.connection
+      .prepare("SELECT COUNT(*) as count FROM session_sources WHERE session_id = ?")
+      .get(sessionId) as { count: number };
+    if (sourceCountRow.count === 0) {
+      throw new BadRequestException("At least one source must be attached before generation");
+    }
+
+    return this.generationService.generateFromSessionStream(sessionId, provider, tone, format, onChunk);
+  }
+
   async syncSource(sessionId: string, sourceId: string): Promise<{ ingested: number }> {
     this.assertSessionExists(sessionId);
     this.assertSourceAttached(sessionId, sourceId);

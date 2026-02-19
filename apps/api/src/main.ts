@@ -1,23 +1,13 @@
 import { NestFactory } from "@nestjs/core";
 import type { AgentProvider, CreateSessionDto, CreateSourceDto, GenerateBlogDto, UpdateSessionConfigDto } from "@velogen/shared";
 import { json as expressJson } from "express";
+import type { Request, Response } from "express";
 import { AppModule } from "./app.module";
 import { SessionsService } from "./sessions/sessions.service";
 import type { UpdatePostPayload } from "./sessions/sessions.service";
 import { SourcesService } from "./sources/sources.service";
 
-type RequestLike = {
-  params: Record<string, string>;
-  body?: unknown;
-};
-
-
-type ResponseLike = {
-  status: (code: number) => ResponseLike;
-  json: (value: unknown) => void;
-};
-
-type RouteHandler = (req: RequestLike, res: ResponseLike) => Promise<void>;
+type RouteHandler = (req: Request, res: Response) => Promise<void>;
 
 function getMessage(error: unknown): string {
   if (error instanceof Error) {
@@ -55,7 +45,7 @@ async function bootstrap(): Promise<void> {
     delete: (path: string, handler: RouteHandler) => void;
   };
 
-  const route = (handler: (req: RequestLike) => Promise<unknown>): RouteHandler => {
+  const route = (handler: (req: Request) => Promise<unknown>): RouteHandler => {
     return async (req, res) => {
       try {
         const result = await handler(req);
@@ -152,6 +142,43 @@ async function bootstrap(): Promise<void> {
       return sessionsService.generate(req.params.sessionId, provider, payload.tone, payload.format);
     })
   );
+
+  httpServer.get("/sessions/:sessionId/generate/stream", async (req: Request, res: Response) => {
+    const sessionId = req.params.sessionId;
+    const providerParam = typeof req.query.provider === "string" ? req.query.provider : "mock";
+    const tone = typeof req.query.tone === "string" ? req.query.tone : undefined;
+    const format = typeof req.query.format === "string" ? req.query.format : undefined;
+
+    const allowedProviders: AgentProvider[] = ["mock", "claude", "codex", "opencode"];
+    const provider = allowedProviders.includes(providerParam as AgentProvider)
+      ? (providerParam as AgentProvider)
+      : "mock";
+
+    res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
+    res.setHeader("Cache-Control", "no-cache, no-transform");
+    res.setHeader("Connection", "keep-alive");
+    res.flushHeaders();
+
+    const send = (payload: Record<string, unknown>): void => {
+      res.write(`data: ${JSON.stringify(payload)}\n\n`);
+    };
+
+    send({ type: "status", message: "Generation started" });
+
+    try {
+      const result = await sessionsService.generateStream(sessionId, provider, tone, format, (chunk) => {
+        send({ type: "chunk", chunk });
+      });
+      send({ type: "complete", post: result });
+      res.end();
+    } catch (error) {
+      send({
+        type: "error",
+        message: getMessage(error)
+      });
+      res.end();
+    }
+  });
 
   httpServer.get(
     "/sessions/:sessionId/posts",
