@@ -46,6 +46,7 @@ export interface CreateSessionDto {
 export interface UpdateSessionConfigDto {
   tone?: string;
   format?: string;
+  provider?: AgentProvider;
 }
 
 export interface GenerateBlogDto {
@@ -61,6 +62,17 @@ export interface GenerateBlogDto {
   refinePostId?: string;
 }
 
+/** 블로그 포스트 생성 시 기록되는 메타데이터 */
+export interface GenerationMeta {
+  provider: string;
+  tone?: string;
+  format?: string;
+  userInstruction?: string;
+  refinePostId?: string;
+  /** 생성 시점에 사용된 소스 스냅샷 */
+  sources: Array<{ sourceId: string; name: string; type: string }>;
+}
+
 export interface BlogPostResult {
   id: string;
   title: string;
@@ -69,4 +81,5 @@ export interface BlogPostResult {
   status: "draft" | "published";
   createdAt: string;
   updatedAt: string;
+  generationMeta?: GenerationMeta;
 }

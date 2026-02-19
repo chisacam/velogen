@@ -88,12 +88,19 @@ export class DatabaseService implements OnModuleInit {
       );
     `);
 
+    this.ensureSessionColumns();
     this.ensureBlogPostColumns();
+  }
+
+  private ensureSessionColumns(): void {
+    this.addColumnIfMissing("sessions", "provider", "TEXT NOT NULL DEFAULT 'mock'");
+    this.db.exec("UPDATE sessions SET provider = COALESCE(provider, 'mock')");
   }
 
   private ensureBlogPostColumns(): void {
     this.addColumnIfMissing("blog_posts", "updated_at", "TEXT");
     this.addColumnIfMissing("blog_posts", "status", "TEXT NOT NULL DEFAULT 'draft'");
+    this.addColumnIfMissing("blog_posts", "generation_meta_json", "TEXT");
 
     this.db.exec("UPDATE blog_posts SET updated_at = COALESCE(updated_at, created_at)");
     this.db.exec("UPDATE blog_posts SET status = COALESCE(status, 'draft')");

@@ -10,6 +10,7 @@ interface SessionRow {
   title: string;
   tone: string | null;
   format: string | null;
+  provider: AgentProvider;
   created_at: string;
   updated_at: string;
 }
@@ -33,22 +34,23 @@ export class SessionsService {
     const id = uuidv4();
 
     this.databaseService.connection
-      .prepare("INSERT INTO sessions (id, title, created_at, updated_at) VALUES (?, ?, ?, ?)")
-      .run(id, payload.title, now, now);
+      .prepare("INSERT INTO sessions (id, title, provider, created_at, updated_at) VALUES (?, ?, ?, ?, ?)")
+      .run(id, payload.title, "mock", now, now);
 
     return { id, title: payload.title, createdAt: now };
   }
 
-  listSessions(): Array<{ id: string; title: string; tone: string | null; format: string | null; updatedAt: string }> {
+  listSessions(): Array<{ id: string; title: string; tone: string | null; format: string | null; provider: AgentProvider; updatedAt: string }> {
     const rows = this.databaseService.connection
-      .prepare("SELECT id, title, tone, format, updated_at FROM sessions ORDER BY updated_at DESC")
-      .all() as Array<Pick<SessionRow, "id" | "title" | "tone" | "format" | "updated_at">>;
+      .prepare("SELECT id, title, tone, format, provider, updated_at FROM sessions ORDER BY updated_at DESC")
+      .all() as Array<Pick<SessionRow, "id" | "title" | "tone" | "format" | "provider" | "updated_at">>;
 
     return rows.map((row) => ({
       id: row.id,
       title: row.title,
       tone: row.tone,
       format: row.format,
+      provider: row.provider,
       updatedAt: row.updated_at
     }));
   }
@@ -56,8 +58,8 @@ export class SessionsService {
   updateSessionConfig(sessionId: string, payload: UpdateSessionConfigDto): { ok: true } {
     const now = new Date().toISOString();
     const result = this.databaseService.connection
-      .prepare("UPDATE sessions SET tone = ?, format = ?, updated_at = ? WHERE id = ?")
-      .run(payload.tone ?? null, payload.format ?? null, now, sessionId);
+      .prepare("UPDATE sessions SET tone = ?, format = ?, provider = COALESCE(?, provider), updated_at = ? WHERE id = ?")
+      .run(payload.tone ?? null, payload.format ?? null, payload.provider ?? null, now, sessionId);
 
     if (result.changes === 0) {
       throw new NotFoundException(`Session not found: ${sessionId}`);
@@ -117,7 +119,9 @@ export class SessionsService {
       refinePostBody = postRow?.body;
     }
 
-    return this.generationService.generateFromSession(sessionId, provider, tone, format, userInstruction, refinePostBody);
+    return this.generationService.generateFromSession(
+      sessionId, provider, tone, format, userInstruction, refinePostBody, refinePostId
+    );
   }
 
   async generateStream(
@@ -145,7 +149,9 @@ export class SessionsService {
       refinePostBody = postRow?.body;
     }
 
-    return this.generationService.generateFromSessionStream(sessionId, provider, tone, format, onChunk, userInstruction, refinePostBody);
+    return this.generationService.generateFromSessionStream(
+      sessionId, provider, tone, format, onChunk, userInstruction, refinePostBody, refinePostId
+    );
   }
 
   async syncSource(sessionId: string, sourceId: string): Promise<{ ingested: number }> {
@@ -164,19 +170,11 @@ export class SessionsService {
       .all(sessionId) as Array<{ id: string; title: string; provider: string; status: string; createdAt: string; updatedAt: string }>;
   }
 
-  getPost(sessionId: string, postId: string): {
-    id: string;
-    title: string;
-    body: string;
-    provider: string;
-    status: string;
-    createdAt: string;
-    updatedAt: string;
-  } {
+  getPost(sessionId: string, postId: string) {
     this.assertSessionExists(sessionId);
     const row = this.databaseService.connection
       .prepare(
-        "SELECT id, title, body, provider, status, created_at as createdAt, updated_at as updatedAt FROM blog_posts WHERE session_id = ? AND id = ?"
+        "SELECT id, title, body, provider, status, created_at as createdAt, updated_at as updatedAt, generation_meta_json as generationMetaJson FROM blog_posts WHERE session_id = ? AND id = ?"
       )
       .get(sessionId, postId) as
       | {
@@ -187,6 +185,7 @@ export class SessionsService {
         status: string;
         createdAt: string;
         updatedAt: string;
+        generationMetaJson: string | null;
       }
       | undefined;
 
@@ -194,7 +193,13 @@ export class SessionsService {
       throw new NotFoundException(`Post not found: ${postId}`);
     }
 
-    return row;
+    const { generationMetaJson, ...rest } = row;
+    return {
+      ...rest,
+      generationMeta: generationMetaJson
+        ? (JSON.parse(generationMetaJson) as Record<string, unknown>)
+        : undefined
+    };
   }
 
   updatePost(
