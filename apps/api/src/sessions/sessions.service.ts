@@ -93,24 +93,13 @@ export class SessionsService {
       .all(sessionId) as Array<{ sourceId: string; name: string; type: string }>;
   }
 
-  async generate(sessionId: string, provider: AgentProvider, tone?: string, format?: string) {
-    this.assertSessionExists(sessionId);
-    const sourceCountRow = this.databaseService.connection
-      .prepare("SELECT COUNT(*) as count FROM session_sources WHERE session_id = ?")
-      .get(sessionId) as { count: number };
-    if (sourceCountRow.count === 0) {
-      throw new BadRequestException("At least one source must be attached before generation");
-    }
-
-    return this.generationService.generateFromSession(sessionId, provider, tone, format);
-  }
-
-  async generateStream(
+  async generate(
     sessionId: string,
     provider: AgentProvider,
-    tone: string | undefined,
-    format: string | undefined,
-    onChunk: (chunk: string) => void
+    tone?: string,
+    format?: string,
+    userInstruction?: string,
+    refinePostId?: string
   ) {
     this.assertSessionExists(sessionId);
     const sourceCountRow = this.databaseService.connection
@@ -120,7 +109,43 @@ export class SessionsService {
       throw new BadRequestException("At least one source must be attached before generation");
     }
 
-    return this.generationService.generateFromSessionStream(sessionId, provider, tone, format, onChunk);
+    let refinePostBody: string | undefined;
+    if (refinePostId) {
+      const postRow = this.databaseService.connection
+        .prepare("SELECT body FROM blog_posts WHERE id = ? AND session_id = ?")
+        .get(refinePostId, sessionId) as { body: string } | undefined;
+      refinePostBody = postRow?.body;
+    }
+
+    return this.generationService.generateFromSession(sessionId, provider, tone, format, userInstruction, refinePostBody);
+  }
+
+  async generateStream(
+    sessionId: string,
+    provider: AgentProvider,
+    tone: string | undefined,
+    format: string | undefined,
+    onChunk: (chunk: string) => void,
+    userInstruction?: string,
+    refinePostId?: string
+  ) {
+    this.assertSessionExists(sessionId);
+    const sourceCountRow = this.databaseService.connection
+      .prepare("SELECT COUNT(*) as count FROM session_sources WHERE session_id = ?")
+      .get(sessionId) as { count: number };
+    if (sourceCountRow.count === 0) {
+      throw new BadRequestException("At least one source must be attached before generation");
+    }
+
+    let refinePostBody: string | undefined;
+    if (refinePostId) {
+      const postRow = this.databaseService.connection
+        .prepare("SELECT body FROM blog_posts WHERE id = ? AND session_id = ?")
+        .get(refinePostId, sessionId) as { body: string } | undefined;
+      refinePostBody = postRow?.body;
+    }
+
+    return this.generationService.generateFromSessionStream(sessionId, provider, tone, format, onChunk, userInstruction, refinePostBody);
   }
 
   async syncSource(sessionId: string, sourceId: string): Promise<{ ingested: number }> {

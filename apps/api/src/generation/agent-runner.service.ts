@@ -30,12 +30,12 @@ export class AgentRunnerService {
 
   /** 프롬프트를 지정된 프로바이더 CLI에 전달하고 결과를 반환합니다. */
   async run(prompt: string, provider: Exclude<AgentProvider, "mock">): Promise<string> {
-    const { command, args } = this.resolveCommand(provider);
+    const { command, args, stdinInput, model } = this.resolveCommand(provider, prompt);
 
-    this.logger.log(`[${provider}] Running: ${command} ${args.join(" ")}`);
+    this.logger.log(`[${provider}] Running: ${command}${model ? ` (model: ${model})` : ""}`);
 
     try {
-      const output = await this.spawnWithStdin(command, args, prompt);
+      const output = await this.spawnWithStdin(command, args, stdinInput);
 
       if (output.length === 0) {
         this.logger.warn(`[${provider}] Empty output, falling back to mock`);
@@ -56,12 +56,12 @@ export class AgentRunnerService {
     provider: Exclude<AgentProvider, "mock">,
     onChunk: (chunk: string) => void
   ): Promise<string> {
-    const { command, args } = this.resolveCommand(provider);
+    const { command, args, stdinInput, model } = this.resolveCommand(provider, prompt);
 
-    this.logger.log(`[${provider}] Running(stream): ${command} ${args.join(" ")}`);
+    this.logger.log(`[${provider}] Running(stream): ${command}${model ? ` (model: ${model})` : ""}`);
 
     try {
-      const output = await this.spawnWithStdin(command, args, prompt, onChunk);
+      const output = await this.spawnWithStdin(command, args, stdinInput, onChunk);
 
       if (output.length === 0) {
         this.logger.warn(`[${provider}] Empty output, falling back to mock`);
@@ -86,14 +86,21 @@ export class AgentRunnerService {
   // ---------------------------------------------------------------------------
 
   /**
-   * 각 프로바이더에 맞는 CLI 명령어와 인자를 반환합니다.
+   * 각 프로바이더에 맞는 CLI 명령어, 인자, stdin 입력을 반환합니다.
    *
    * 공통 규칙: 프롬프트는 stdin으로 전달합니다.
-   * 단, codex는 stdin 지원이 불안정하므로 인자(arg)로도 전달합니다.
+   * 예외:
+   * - gemini: `--prompt <text>` 형태로 인자에 직접 포함해야 합니다.
+   *   `gemini --prompt` 만 실행하면 "Not enough arguments following: prompt" 에러 발생.
    */
-  private resolveCommand(provider: Exclude<AgentProvider, "mock">): {
+  private resolveCommand(
+    provider: Exclude<AgentProvider, "mock">,
+    prompt: string
+  ): {
     command: string;
     args: string[];
+    stdinInput: string;
+    model: string | undefined;
   } {
     switch (provider) {
       case "claude": {
@@ -107,20 +114,19 @@ export class AgentRunnerService {
         const args = ["--print"];
         const model = process.env.CLAUDE_MODEL;
         if (model) args.push("--model", model);
-        return { command, args };
+        return { command, args, stdinInput: prompt, model };
       }
 
       case "codex": {
         /**
          * OpenAI Codex CLI 비대화형 모드.
          * `--approval-mode full-auto` 로 사람의 승인 없이 자동 실행합니다.
-         * `--quiet` 는 진행 상태 메시지를 억제합니다.
          */
         const command = process.env.CODEX_COMMAND ?? "codex";
         const args = ["exec", "--full-auto"];
         const model = process.env.CODEX_MODEL;
         if (model) args.push("--model", model);
-        return { command, args };
+        return { command, args, stdinInput: prompt, model };
       }
 
       case "opencode": {
@@ -132,7 +138,21 @@ export class AgentRunnerService {
         const args = ["run"];
         const model = process.env.OPENCODE_MODEL;
         if (model) args.push("--model", model);
-        return { command, args };
+        return { command, args, stdinInput: prompt, model };
+      }
+
+      case "gemini": {
+        /**
+         * Gemini CLI 비대화형 모드.
+         * `--prompt <text>` 형태로 반드시 인자에 직접 포함해야 합니다.
+         * stdin만 보내면 "Not enough arguments following: prompt" 에러 발생.
+         * stdin은 사용하지 않으므로 빈 문자열로 둡니다.
+         */
+        const command = process.env.GEMINI_COMMAND ?? "gemini";
+        const args: string[] = ["--prompt", prompt];
+        const model = process.env.GEMINI_MODEL;
+        if (model) args.push("--model", model);
+        return { command, args, stdinInput: "", model };
       }
     }
   }
@@ -234,6 +254,7 @@ export class AgentRunnerService {
       "**Claude**: `npm install -g @anthropic-ai/claude-code` 후 `claude --print` 동작 확인",
       "**Codex**: `npm install -g @openai/codex` 후 `codex --approval-mode full-auto` 동작 확인",
       "**Opencode**: 공식 문서에 따라 설치 후 `opencode run` 동작 확인",
+      "**Gemini**: `npm install -g @google/gemini-cli` 후 `gemini` 동작 확인",
       "",
       "## 포함된 컨텍스트 (디버그용)",
       "",

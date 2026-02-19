@@ -139,7 +139,14 @@ async function bootstrap(): Promise<void> {
     route(async (req) => {
       const payload = (req.body as GenerateBlogDto | undefined) ?? {};
       const provider: AgentProvider = payload.provider ?? "mock";
-      return sessionsService.generate(req.params.sessionId, provider, payload.tone, payload.format);
+      return sessionsService.generate(
+        req.params.sessionId,
+        provider,
+        payload.tone,
+        payload.format,
+        payload.userInstruction,
+        payload.refinePostId
+      );
     })
   );
 
@@ -148,8 +155,10 @@ async function bootstrap(): Promise<void> {
     const providerParam = typeof req.query.provider === "string" ? req.query.provider : "mock";
     const tone = typeof req.query.tone === "string" ? req.query.tone : undefined;
     const format = typeof req.query.format === "string" ? req.query.format : undefined;
+    const userInstruction = typeof req.query.userInstruction === "string" ? req.query.userInstruction : undefined;
+    const refinePostId = typeof req.query.refinePostId === "string" ? req.query.refinePostId : undefined;
 
-    const allowedProviders: AgentProvider[] = ["mock", "claude", "codex", "opencode"];
+    const allowedProviders: AgentProvider[] = ["mock", "claude", "codex", "opencode", "gemini"];
     const provider = allowedProviders.includes(providerParam as AgentProvider)
       ? (providerParam as AgentProvider)
       : "mock";
@@ -168,7 +177,7 @@ async function bootstrap(): Promise<void> {
     try {
       const result = await sessionsService.generateStream(sessionId, provider, tone, format, (chunk) => {
         send({ type: "chunk", chunk });
-      });
+      }, userInstruction, refinePostId);
       send({ type: "complete", post: result });
       res.end();
     } catch (error) {

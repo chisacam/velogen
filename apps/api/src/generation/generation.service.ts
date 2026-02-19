@@ -49,9 +49,11 @@ export class GenerationService {
     sessionId: string,
     provider: AgentProvider,
     tone?: string,
-    format?: string
+    format?: string,
+    userInstruction?: string,
+    refinePostBody?: string
   ): Promise<BlogPostResult> {
-    const prepared = await this.prepareGenerationContext(sessionId, tone, format);
+    const prepared = await this.prepareGenerationContext(sessionId, tone, format, userInstruction, refinePostBody);
     const generatedBody =
       provider === "mock"
         ? this.mockGenerate(prepared.prompt, prepared.items)
@@ -65,9 +67,11 @@ export class GenerationService {
     provider: AgentProvider,
     tone: string | undefined,
     format: string | undefined,
-    onChunk: (chunk: string) => void
+    onChunk: (chunk: string) => void,
+    userInstruction?: string,
+    refinePostBody?: string
   ): Promise<BlogPostResult> {
-    const prepared = await this.prepareGenerationContext(sessionId, tone, format);
+    const prepared = await this.prepareGenerationContext(sessionId, tone, format, userInstruction, refinePostBody);
     const generatedBody =
       provider === "mock"
         ? this.mockGenerate(prepared.prompt, prepared.items)
@@ -82,7 +86,13 @@ export class GenerationService {
     return this.persistGeneratedPost(sessionId, prepared.session.title, provider, generatedBody);
   }
 
-  private async prepareGenerationContext(sessionId: string, tone?: string, format?: string): Promise<{
+  private async prepareGenerationContext(
+    sessionId: string,
+    tone?: string,
+    format?: string,
+    userInstruction?: string,
+    refinePostBody?: string
+  ): Promise<{
     session: SessionInfo;
     items: ContentItemRow[];
     prompt: string;
@@ -115,7 +125,7 @@ export class GenerationService {
 
     const requestedTone = tone ?? session.tone ?? "기본 톤";
     const requestedFormat = format ?? session.format ?? "기본 기술 블로그 형식";
-    const prompt = this.buildPrompt(session.title, requestedTone, requestedFormat, items);
+    const prompt = this.buildPrompt(session.title, requestedTone, requestedFormat, items, userInstruction, refinePostBody);
 
     return { session, items, prompt };
   }
@@ -153,60 +163,97 @@ export class GenerationService {
     };
   }
 
-  private buildPrompt(title: string, tone: string, format: string, items: ContentItemRow[]): string {
+  private buildPrompt(
+    title: string,
+    tone: string,
+    format: string,
+    items: ContentItemRow[],
+    userInstruction?: string,
+    refinePostBody?: string
+  ): string {
     const normalizedItems = this.toPromptItems(items);
     const timeline = this.buildTimelineSection(normalizedItems);
     const themeGroups = this.buildThemeSection(normalizedItems);
     const evidence = this.buildEvidenceSection(normalizedItems);
 
-    const fullPrompt = [
+    // 수정(refine) 모드: 기존 글 본문이 있으면 앞에 붙임
+    const refinePreamble = refinePostBody
+      ? [
+        "[EXISTING DRAFT — REFINE MODE]",
+        "아래는 이미 작성된 블로그 초안입니다.",
+        "이 초안을 기반으로 개선 및 수정 작업을 수행하세요.",
+        "초안에 없는 내용을 임의로 추가하지 말고, 아래 소스 데이터와 사용자 지시사항을 반영하여 다듬어 주세요.",
+        "",
+        refinePostBody,
+        ""
+      ].join("\n")
+      : null;
+
+    // 사용자 추가 지시사항
+    const instructionBlock = userInstruction?.trim()
+      ? ["[USER INSTRUCTION]", userInstruction.trim(), ""].join("\n")
+      : null;
+
+    const basePrompt = [
       `블로그 제목: ${title}`,
       `톤/문체 요청: ${tone}`,
       `형식 요청: ${format}`,
-      "목표: 엔지니어링 회고형 테크 블로그를 작성합니다.",
+      refinePostBody
+        ? "목표: 제공된 엔지니어링 회고형 테크 블로그 초안을 소스 데이터와 사용자 지시사항을 반영하여 개선합니다."
+        : "목표: 엔지니어링 회고형 테크 블로그를 작성합니다.",
       "규칙: 반드시 입력된 소스를 기반으로 글을 작성하고, 소스에 없는 내용을 추가하지 않습니다.",
-      "출력 형식(반드시 Markdown):",
+      "제목은 반드시 주어진 제목만 사용할 필요는 없고, 내용에 어울리는 제목으로 수정되어도 괜찮습니다.",
+      "각 섹션은 내용에 어울리는 부제를 붙이고, 블로그 글 이므로 지나친 요약대신 독자가 이탈하지 않고 읽을 수 있도록 내용 전개가 필요합니다.",
+      "[WRITING GUIDELINES]",
+      "- chronology를 유지하되, 독자가 이해하기 쉽게 문제-시도-결과-학습 흐름으로 재구성합니다.",
+      "- commit/notion 원문을 복붙하지 말고 의미를 통합 요약합니다.",
+      "- 마지막에 후속 액션 아이템을 실행 가능한 checklist로 작성합니다.",
+      "- 출력 형식은 아래 순서와 내용을 따르고, 반드시 Markdown 문법을 따라야 합니다.",
       "1) Executive Summary",
       "2) Timeline Review",
       "3) Thematic Insights",
       "4) Decisions & Trade-offs",
       "5) Next Iteration Plan",
       "",
+    ];
+
+    const fullContent = [
+      ...(refinePreamble ? [refinePreamble] : []),
+      ...(instructionBlock ? [instructionBlock] : []),
+      ...basePrompt,
       "[TIMELINE INPUT]",
       timeline,
       "[THEME INPUT]",
       themeGroups,
       "[EVIDENCE INPUT]",
       evidence,
-      "[WRITING GUIDELINES]",
-      "- chronology를 유지하되, 독자가 이해하기 쉽게 문제-시도-결과-학습 흐름으로 재구성합니다.",
-      "- commit/notion 원문을 복붙하지 말고 의미를 통합 요약합니다.",
-      "- 마지막에 후속 액션 아이템을 실행 가능한 checklist로 작성합니다."
     ].join("\n\n");
 
     const maxPromptChars = Number.parseInt(process.env.PROMPT_MAX_CHARS ?? "32000", 10);
-    if (fullPrompt.length <= maxPromptChars) {
-      return fullPrompt;
+    if (fullContent.length <= maxPromptChars) {
+      return fullContent;
     }
 
+    // 압축 모드 (너무 길 때)
     const compactItems = normalizedItems.map((item) => ({
       ...item,
       body: item.body.slice(0, 240)
     }));
 
-    return [
-      `블로그 제목: ${title}`,
-      `톤/문체 요청: ${tone}`,
-      `형식 요청: ${format}`,
-      "입력 데이터가 길어 압축 모드로 전환되었습니다.",
-      "핵심 사건과 의사결정 맥락을 우선으로 회고 글을 작성하세요.",
-      "",
+    const compactContent = [
+      ...(refinePreamble ? [refinePreamble] : []),
+      ...(instructionBlock ? [instructionBlock] : []),
+      ...basePrompt,
       "[COMPACT EVIDENCE INPUT]",
+      "입력 데이터가 길어 압축 모드로 전환되었습니다.",
+      "입력 데이터가 다소 압축된 점을 감안하여 핵심 내용을 놓치지 않도록 주의하세요.",
       ...compactItems.map(
         (item) =>
           `${item.citationId} | ${item.monthBucket} | ${item.theme} | ${item.sourceName}/${item.sourceType}/${item.kind} | ${item.title}\n${item.body}`
       )
     ].join("\n\n");
+
+    return compactContent;
   }
 
   private toPromptItems(items: ContentItemRow[]): PromptItem[] {
