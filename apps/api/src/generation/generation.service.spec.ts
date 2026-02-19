@@ -61,7 +61,8 @@ describe("GenerationService retrospective prompt", () => {
         provider TEXT NOT NULL,
         created_at TEXT NOT NULL,
         updated_at TEXT,
-        status TEXT NOT NULL DEFAULT 'draft'
+        status TEXT NOT NULL DEFAULT 'draft',
+        generation_meta_json TEXT
       );
       CREATE TABLE blog_post_revisions (
         id TEXT PRIMARY KEY,

@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { AgentProvider, SourceSummary, SourceType } from "@velogen/shared";
+import type { AgentProvider, GenerationMeta, SourceSummary, SourceType } from "@velogen/shared";
 import { MarkdownEditor } from "../components/markdown-editor";
 import { MarkdownViewer } from "../components/markdown-viewer";
 
@@ -10,6 +10,7 @@ interface SessionSummary {
   title: string;
   tone: string | null;
   format: string | null;
+  provider: AgentProvider;
   updatedAt: string;
 }
 
@@ -36,6 +37,7 @@ interface GeneratedPost {
   provider: string;
   createdAt: string;
   updatedAt: string;
+  generationMeta?: GenerationMeta;
 }
 
 interface PostRevision {
@@ -247,6 +249,15 @@ export default function HomePage() {
   }, [loadPost, selectedPostId, selectedSessionId]);
 
   useEffect(() => {
+    if (!selectedSession) {
+      return;
+    }
+    setTone(selectedSession.tone ?? "");
+    setFormat(selectedSession.format ?? "");
+    setProvider(selectedSession.provider ?? "mock");
+  }, [selectedSession]);
+
+  useEffect(() => {
     return () => {
       if (streamRef.current) {
         streamRef.current.close();
@@ -433,7 +444,7 @@ export default function HomePage() {
     try {
       await apiRequest<{ ok: true }>(`/sessions/${selectedSessionId}/config`, {
         method: "PATCH",
-        body: JSON.stringify({ tone: tone || undefined, format: format || undefined })
+        body: JSON.stringify({ tone: tone || undefined, format: format || undefined, provider })
       });
       await refreshSessions();
       setStatus("Generation config updated");
@@ -468,7 +479,13 @@ export default function HomePage() {
       try {
         const post = await apiRequest<GeneratedPost>(`/sessions/${selectedSessionId}/generate`, {
           method: "POST",
-          body: JSON.stringify({ provider, tone: tone || undefined, format: format || undefined })
+          body: JSON.stringify({
+            provider,
+            tone: tone || undefined,
+            format: format || undefined,
+            userInstruction: userInstruction || undefined,
+            refinePostId: generateMode === "refine" && selectedPostId ? selectedPostId : undefined
+          })
         });
         setGeneratedPost(post);
         setSelectedPostId(post.id);
@@ -976,6 +993,39 @@ export default function HomePage() {
                   ) : null}
                 </div>
                 <div className="revisionPanel">
+                  <h3>Generation Context</h3>
+                  {generatedPost?.generationMeta ? (
+                    <div className="generationMeta">
+                      <p>
+                        <strong>Provider:</strong> {generatedPost.generationMeta.provider}
+                      </p>
+                      <p>
+                        <strong>Tone:</strong> {generatedPost.generationMeta.tone ?? "(none)"}
+                      </p>
+                      <p>
+                        <strong>Format:</strong> {generatedPost.generationMeta.format ?? "(none)"}
+                      </p>
+                      <p>
+                        <strong>Instruction:</strong> {generatedPost.generationMeta.userInstruction ?? "(none)"}
+                      </p>
+                      <p>
+                        <strong>Refine From:</strong> {generatedPost.generationMeta.refinePostId ?? "(new draft)"}
+                      </p>
+                      <p>
+                        <strong>Used Sources:</strong>
+                      </p>
+                      <ul>
+                        {generatedPost.generationMeta.sources.map((source) => (
+                          <li key={source.sourceId}>
+                            {source.name} ({source.type})
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : (
+                    <p>No saved generation context for this post.</p>
+                  )}
+
                   <h3>Revision History</h3>
                   {revisions.length === 0 ? (
                     <p>No revisions yet.</p>

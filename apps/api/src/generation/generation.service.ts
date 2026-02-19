@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { v4 as uuidv4 } from "uuid";
-import type { AgentProvider, BlogPostResult } from "@velogen/shared";
+import type { AgentProvider, BlogPostResult, GenerationMeta } from "@velogen/shared";
 import { DatabaseService } from "../database/database.service";
 import { AgentRunnerService } from "./agent-runner.service";
 import { ContentIngestionService } from "../sync/content-ingestion.service";
@@ -51,7 +51,8 @@ export class GenerationService {
     tone?: string,
     format?: string,
     userInstruction?: string,
-    refinePostBody?: string
+    refinePostBody?: string,
+    refinePostId?: string
   ): Promise<BlogPostResult> {
     const prepared = await this.prepareGenerationContext(sessionId, tone, format, userInstruction, refinePostBody);
     const generatedBody =
@@ -59,7 +60,16 @@ export class GenerationService {
         ? this.mockGenerate(prepared.prompt, prepared.items)
         : await this.agentRunnerService.run(prepared.prompt, provider);
 
-    return this.persistGeneratedPost(sessionId, prepared.session.title, provider, generatedBody);
+    const meta: GenerationMeta = {
+      provider,
+      tone: tone || undefined,
+      format: format || undefined,
+      userInstruction: userInstruction || undefined,
+      refinePostId: refinePostId || undefined,
+      sources: prepared.sources
+    };
+
+    return this.persistGeneratedPost(sessionId, prepared.session.title, provider, generatedBody, meta);
   }
 
   async generateFromSessionStream(
@@ -69,7 +79,8 @@ export class GenerationService {
     format: string | undefined,
     onChunk: (chunk: string) => void,
     userInstruction?: string,
-    refinePostBody?: string
+    refinePostBody?: string,
+    refinePostId?: string
   ): Promise<BlogPostResult> {
     const prepared = await this.prepareGenerationContext(sessionId, tone, format, userInstruction, refinePostBody);
     const generatedBody =
@@ -83,7 +94,16 @@ export class GenerationService {
       }
     }
 
-    return this.persistGeneratedPost(sessionId, prepared.session.title, provider, generatedBody);
+    const meta: GenerationMeta = {
+      provider,
+      tone: tone || undefined,
+      format: format || undefined,
+      userInstruction: userInstruction || undefined,
+      refinePostId: refinePostId || undefined,
+      sources: prepared.sources
+    };
+
+    return this.persistGeneratedPost(sessionId, prepared.session.title, provider, generatedBody, meta);
   }
 
   private async prepareGenerationContext(
@@ -96,6 +116,7 @@ export class GenerationService {
     session: SessionInfo;
     items: ContentItemRow[];
     prompt: string;
+    sources: Array<{ sourceId: string; name: string; type: string }>;
   }> {
     const session = this.databaseService.connection
       .prepare("SELECT id, title, tone, format FROM sessions WHERE id = ?")
@@ -112,6 +133,13 @@ export class GenerationService {
       await this.ingestionService.ingestSource(source.source_id);
     }
 
+    // 소스 스냅샷 (메타 저장용)
+    const sourcesSnapshot = this.databaseService.connection
+      .prepare(
+        "SELECT s.id as sourceId, s.name, s.type FROM session_sources ss JOIN sources s ON s.id = ss.source_id WHERE ss.session_id = ?"
+      )
+      .all(sessionId) as Array<{ sourceId: string; name: string; type: string }>;
+
     const items = this.databaseService.connection
       .prepare(
         `SELECT s.name as source_name, s.type as source_type, c.kind, c.title, c.body, c.author, c.occurred_at, c.metadata_json
@@ -127,24 +155,26 @@ export class GenerationService {
     const requestedFormat = format ?? session.format ?? "기본 기술 블로그 형식";
     const prompt = this.buildPrompt(session.title, requestedTone, requestedFormat, items, userInstruction, refinePostBody);
 
-    return { session, items, prompt };
+    return { session, items, prompt, sources: sourcesSnapshot };
   }
 
   private persistGeneratedPost(
     sessionId: string,
     title: string,
     provider: AgentProvider,
-    generatedBody: string
+    generatedBody: string,
+    meta?: GenerationMeta
   ): BlogPostResult {
     const postId = uuidv4();
     const createdAt = new Date().toISOString();
     const status = "draft";
+    const metaJson = meta ? JSON.stringify(meta) : null;
 
     this.databaseService.connection
       .prepare(
-        "INSERT INTO blog_posts (id, session_id, title, body, provider, created_at, updated_at, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+        "INSERT INTO blog_posts (id, session_id, title, body, provider, created_at, updated_at, status, generation_meta_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
       )
-      .run(postId, sessionId, title, generatedBody, provider, createdAt, createdAt, status);
+      .run(postId, sessionId, title, generatedBody, provider, createdAt, createdAt, status, metaJson);
 
     this.databaseService.connection
       .prepare(
@@ -159,7 +189,8 @@ export class GenerationService {
       provider,
       status,
       createdAt,
-      updatedAt: createdAt
+      updatedAt: createdAt,
+      generationMeta: meta
     };
   }
 
