@@ -119,6 +119,8 @@ export default function HomePage() {
   const [tone, setTone] = useState("");
   const [format, setFormat] = useState("");
   const [provider, setProvider] = useState<AgentProvider>("mock");
+  const [userInstruction, setUserInstruction] = useState("");
+  const [generateMode, setGenerateMode] = useState<"new" | "refine">("new");
   const [repoName, setRepoName] = useState("My Repo");
   const [repoPath, setRepoPath] = useState("");
   const [repoUrl, setRepoUrl] = useState("");
@@ -493,6 +495,12 @@ export default function HomePage() {
     if (format.trim().length > 0) {
       params.set("format", format);
     }
+    if (userInstruction.trim().length > 0) {
+      params.set("userInstruction", userInstruction);
+    }
+    if (generateMode === "refine" && selectedPostId) {
+      params.set("refinePostId", selectedPostId);
+    }
 
     let completed = false;
     const stream = new EventSource(`${API_BASE}/sessions/${selectedSessionId}/generate/stream?${params.toString()}`);
@@ -725,6 +733,7 @@ export default function HomePage() {
                     <option value="claude">🧠 Claude</option>
                     <option value="codex">⚡ Codex</option>
                     <option value="opencode">🛠 Opencode</option>
+                    <option value="gemini">🌟 Gemini</option>
                   </select>
                 </label>
                 <div className="row">
@@ -892,6 +901,49 @@ export default function HomePage() {
                   Save Markdown
                 </button>
               </div>
+            </div>
+
+            <div className="instructionBar">
+              <div className="instructionModeRow">
+                <span className="instructionLabel">Generation Mode</span>
+                <div className="modeToggleGroup">
+                  <button
+                    id="mode-new"
+                    type="button"
+                    className={generateMode === "new" ? "modeToggle active" : "modeToggle"}
+                    onClick={() => setGenerateMode("new")}
+                  >
+                    ✦ New Draft
+                  </button>
+                  <button
+                    id="mode-refine"
+                    type="button"
+                    className={generateMode === "refine" ? "modeToggle active" : "modeToggle"}
+                    onClick={() => setGenerateMode("refine")}
+                    disabled={!selectedPostId}
+                    title={!selectedPostId ? "먼저 글을 선택하거나 생성하세요" : "현재 에디터의 글을 수정합니다"}
+                  >
+                    ✎ Refine Current
+                  </button>
+                </div>
+                {generateMode === "refine" && selectedPostId && (
+                  <span className="refineBadge">수정 대상: {generatedPost?.title ?? selectedPostId}</span>
+                )}
+              </div>
+              <label className="instructionInputWrap">
+                <span className="instructionLabel">Agent Instruction <span className="optionalTag">(optional)</span></span>
+                <textarea
+                  id="user-instruction"
+                  className="instructionTextarea"
+                  value={userInstruction}
+                  onChange={(event) => setUserInstruction(event.target.value)}
+                  placeholder={generateMode === "refine"
+                    ? "예: 3번째 섹션을 더 자세하게 작성해줘. 코드 예시를 추가해줘."
+                    : "예: 배포 관련 내용을 주인공으로 삼아줘. 결론을 더 강조해줘."}
+                  rows={3}
+                  disabled={isGenerating}
+                />
+              </label>
             </div>
 
             {generatedPost || isGenerating ? (

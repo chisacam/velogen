@@ -6,8 +6,9 @@ export type SourceType = "repo" | "notion";
  * - claude: Anthropic Claude Code CLI (`claude --print`)
  * - codex: OpenAI Codex CLI (`codex --approval-mode full-auto`)
  * - opencode: Opencode CLI (`opencode run`)
+ * - gemini: Google Gemini CLI (`gemini`)
  */
-export type AgentProvider = "mock" | "claude" | "codex" | "opencode";
+export type AgentProvider = "mock" | "claude" | "codex" | "opencode" | "gemini";
 
 export interface RepoSourceConfig {
   repoUrl?: string;
@@ -51,6 +52,13 @@ export interface GenerateBlogDto {
   provider?: AgentProvider;
   tone?: string;
   format?: string;
+  /** 에이전트에게 전달할 추가 지시사항 (선택) */
+  userInstruction?: string;
+  /**
+   * 지정하면 해당 포스트를 바탕으로 수정(refine) 모드로 생성합니다.
+   * 미지정 시 소스 데이터를 기반으로 새 글을 작성합니다.
+   */
+  refinePostId?: string;
 }
 
 export interface BlogPostResult {
@@ -62,4 +70,3 @@ export interface BlogPostResult {
   createdAt: string;
   updatedAt: string;
 }
-
