@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "module": "ESNext"
+  },
+  "files": [],
+  "references": [
+    { "path": "./packages/shared" },
+    { "path": "./apps/api" },
+    { "path": "./apps/web" }
+  ]
+}

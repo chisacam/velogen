@@ -1,0 +1,223 @@
+:root {
+  color-scheme: light;
+  --bg-0: #f7f9f3;
+  --bg-1: #d9e8f6;
+  --bg-2: #f0dbc5;
+  --ink: #172327;
+  --muted: #4f5f63;
+  --card: #ffffffcc;
+  --stroke: #18353f22;
+  --accent: #007a74;
+  --accent-2: #005f7a;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: "Avenir Next", "Noto Sans KR", "Segoe UI", sans-serif;
+  color: var(--ink);
+  background:
+    radial-gradient(1200px 500px at 15% 10%, #fff7d9 0%, transparent 55%),
+    radial-gradient(900px 500px at 90% 5%, #d8fff2 0%, transparent 45%),
+    linear-gradient(145deg, var(--bg-0), var(--bg-1) 48%, var(--bg-2));
+}
+
+.canvas {
+  width: min(1200px, 96vw);
+  margin: 24px auto 36px;
+  display: grid;
+  gap: 16px;
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--stroke);
+  border-radius: 16px;
+  box-shadow: 0 8px 26px #0a2c3815;
+  padding: 18px;
+  backdrop-filter: blur(8px);
+  animation: rise 0.45s ease-out;
+}
+
+.hero h1 {
+  margin: 8px 0 6px;
+  font-size: clamp(1.5rem, 1.25rem + 1.2vw, 2.2rem);
+  letter-spacing: 0.01em;
+}
+
+.eyebrow {
+  display: inline-block;
+  margin: 0;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: #0c706d14;
+  color: #0b5b58;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.status {
+  margin-top: 12px;
+  color: var(--muted);
+}
+
+.grid.two {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.form,
+label {
+  display: grid;
+  gap: 8px;
+}
+
+label {
+  margin-bottom: 10px;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+input,
+select,
+button,
+textarea {
+  font: inherit;
+}
+
+input,
+select,
+textarea {
+  width: 100%;
+  border: 1px solid #2f505924;
+  background: #ffffffd9;
+  border-radius: 10px;
+  padding: 10px 12px;
+  color: var(--ink);
+}
+
+button {
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(130deg, var(--accent), var(--accent-2));
+  color: #fff;
+  padding: 10px 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+button.ghost {
+  background: #fff;
+  color: #9d2b2b;
+  border: 1px solid #9d2b2b40;
+}
+
+.row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.tableLike {
+  display: grid;
+  gap: 10px;
+}
+
+.entry {
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  align-items: center;
+  border: 1px solid #294f571f;
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: #ffffffc0;
+}
+
+.postLink {
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid #2f505924;
+}
+
+.mdPane {
+  display: grid;
+  gap: 10px;
+}
+
+.mdPane.mode-split {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.markdown-editor {
+  min-height: 360px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  width: 100%;
+  border: 1px solid #2f505924;
+  border-radius: 12px;
+  padding: 12px;
+  background: #fff;
+  resize: vertical;
+}
+
+.markdown-viewer {
+  min-height: 360px;
+  border: 1px solid #2f505924;
+  border-radius: 12px;
+  padding: 12px;
+  background: #fff;
+  overflow: auto;
+}
+
+.markdown-viewer h1,
+.markdown-viewer h2,
+.markdown-viewer h3 {
+  margin-top: 1.1rem;
+}
+
+.revisionPanel {
+  margin-top: 12px;
+  border-top: 1px solid #2f505924;
+  padding-top: 10px;
+}
+
+.tinyButton {
+  margin-left: 8px;
+  padding: 4px 8px;
+  font-size: 0.8rem;
+}
+
+pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: #0e2a2e;
+  color: #def1ef;
+  border-radius: 12px;
+  padding: 14px;
+  overflow: auto;
+  max-height: 480px;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 900px) {
+  .grid.two {
+    grid-template-columns: 1fr;
+  }
+}

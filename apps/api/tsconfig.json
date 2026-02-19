@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "CommonJS",
+    "outDir": "dist",
+    "baseUrl": "./",
+    "paths": {
+      "@velogen/shared": ["../../packages/shared/src"]
+    },
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true
+  },
+  "include": ["src/**/*", "test/**/*"]
+}

@@ -1,0 +1,27 @@
+{
+  "name": "@velogen/web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 3000",
+    "build": "next build",
+    "start": "next start -p 3000",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node -e \"console.log('no tests yet')\""
+  },
+  "dependencies": {
+    "@velogen/shared": "0.1.0",
+    "next": "15.1.6",
+    "react-markdown": "^9.0.3",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "rehype-sanitize": "^6.0.0",
+    "remark-gfm": "^4.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.12.0",
+    "@types/react": "^19.0.7",
+    "@types/react-dom": "^19.0.3",
+    "typescript": "^5.7.3"
+  }
+}
