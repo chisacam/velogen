@@ -147,7 +147,8 @@ async function bootstrap(): Promise<void> {
         payload.tone,
         payload.format,
         payload.userInstruction,
-        payload.refinePostId
+        payload.refinePostId,
+        payload.generateImage
       );
     })
   );
@@ -159,6 +160,7 @@ async function bootstrap(): Promise<void> {
     const format = typeof req.query.format === "string" ? req.query.format : undefined;
     const userInstruction = typeof req.query.userInstruction === "string" ? req.query.userInstruction : undefined;
     const refinePostId = typeof req.query.refinePostId === "string" ? req.query.refinePostId : undefined;
+    const generateImage = req.query.generateImage === "true";
 
     const allowedProviders: AgentProvider[] = ["mock", "claude", "codex", "opencode", "gemini"];
     const provider = allowedProviders.includes(providerParam as AgentProvider)
@@ -179,7 +181,7 @@ async function bootstrap(): Promise<void> {
     try {
       const result = await sessionsService.generateStream(sessionId, provider, tone, format, (chunk) => {
         send({ type: "chunk", chunk });
-      }, userInstruction, refinePostId);
+      }, userInstruction, refinePostId, generateImage);
       send({ type: "complete", post: result });
       res.end();
     } catch (error) {

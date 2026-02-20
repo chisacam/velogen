@@ -61,6 +61,8 @@ export interface GenerateBlogDto {
    * 미지정 시 소스 데이터를 기반으로 새 글을 작성합니다.
    */
   refinePostId?: string;
+  /** 본문 생성 후 이미지를 자동으로 생성할지 여부 */
+  generateImage?: boolean;
 }
 
 /** 블로그 포스트 생성 시 기록되는 메타데이터 */
@@ -70,6 +72,7 @@ export interface GenerationMeta {
   format?: string;
   userInstruction?: string;
   refinePostId?: string;
+  generateImage?: boolean;
   /** 생성 시점에 사용된 소스 스냅샷 */
   sources: Array<{ sourceId: string; name: string; type: string }>;
 }

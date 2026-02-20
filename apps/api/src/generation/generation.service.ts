@@ -52,7 +52,8 @@ export class GenerationService {
     format?: string,
     userInstruction?: string,
     refinePostBody?: string,
-    refinePostId?: string
+    refinePostId?: string,
+    generateImage?: boolean
   ): Promise<BlogPostResult> {
     const prepared = await this.prepareGenerationContext(sessionId, tone, format, userInstruction, refinePostBody);
     const generatedBody =
@@ -66,6 +67,7 @@ export class GenerationService {
       format: format || undefined,
       userInstruction: userInstruction || undefined,
       refinePostId: refinePostId || undefined,
+      generateImage,
       sources: prepared.sources
     };
 
@@ -80,7 +82,8 @@ export class GenerationService {
     onChunk: (chunk: string) => void,
     userInstruction?: string,
     refinePostBody?: string,
-    refinePostId?: string
+    refinePostId?: string,
+    generateImage?: boolean
   ): Promise<BlogPostResult> {
     const prepared = await this.prepareGenerationContext(sessionId, tone, format, userInstruction, refinePostBody);
     const generatedBody =
@@ -100,6 +103,7 @@ export class GenerationService {
       format: format || undefined,
       userInstruction: userInstruction || undefined,
       refinePostId: refinePostId || undefined,
+      generateImage,
       sources: prepared.sources
     };
 

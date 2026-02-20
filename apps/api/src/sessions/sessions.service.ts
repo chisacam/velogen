@@ -101,7 +101,8 @@ export class SessionsService {
     tone?: string,
     format?: string,
     userInstruction?: string,
-    refinePostId?: string
+    refinePostId?: string,
+    generateImage?: boolean
   ) {
     this.assertSessionExists(sessionId);
     const sourceCountRow = this.databaseService.connection
@@ -120,7 +121,7 @@ export class SessionsService {
     }
 
     return this.generationService.generateFromSession(
-      sessionId, provider, tone, format, userInstruction, refinePostBody, refinePostId
+      sessionId, provider, tone, format, userInstruction, refinePostBody, refinePostId, generateImage
     );
   }
 
@@ -131,7 +132,8 @@ export class SessionsService {
     format: string | undefined,
     onChunk: (chunk: string) => void,
     userInstruction?: string,
-    refinePostId?: string
+    refinePostId?: string,
+    generateImage?: boolean
   ) {
     this.assertSessionExists(sessionId);
     const sourceCountRow = this.databaseService.connection
@@ -150,7 +152,7 @@ export class SessionsService {
     }
 
     return this.generationService.generateFromSessionStream(
-      sessionId, provider, tone, format, onChunk, userInstruction, refinePostBody, refinePostId
+      sessionId, provider, tone, format, onChunk, userInstruction, refinePostBody, refinePostId, generateImage
     );
   }
 

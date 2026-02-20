@@ -138,6 +138,7 @@ export default function HomePage() {
   const [activePanel, setActivePanel] = useState<WorkspacePanel>("session");
   const [isGenerating, setIsGenerating] = useState(false);
   const [isGeneratingImages, setIsGeneratingImages] = useState(false);
+  const [autoGenerateImages, setAutoGenerateImages] = useState(false);
   const [flashHeading, setFlashHeading] = useState(false);
   const [flashCitation, setFlashCitation] = useState(false);
   const [postTitleDraft, setPostTitleDraft] = useState("");
@@ -573,7 +574,8 @@ export default function HomePage() {
             tone: tone || undefined,
             format: format || undefined,
             userInstruction: userInstruction || undefined,
-            refinePostId: generateMode === "refine" && selectedPostId ? selectedPostId : undefined
+            refinePostId: generateMode === "refine" && selectedPostId ? selectedPostId : undefined,
+            generateImage: autoGenerateImages
           })
         });
         setGeneratedPost(post);
@@ -586,8 +588,10 @@ export default function HomePage() {
         pushToast("Blog post generated", "success");
         setIsGenerating(false);
         // 이미지 자동 생성
-        const enriched = await generateAndInsertImages(post.body);
-        setPostBodyDraft(enriched);
+        if (autoGenerateImages) {
+          const enriched = await generateAndInsertImages(post.body);
+          setPostBodyDraft(enriched);
+        }
       } catch (error) {
         const message = error instanceof Error ? error.message : "Failed to generate";
         setStatus(message);
@@ -597,7 +601,7 @@ export default function HomePage() {
       return;
     }
 
-    const params = new URLSearchParams({ provider });
+    const params = new URLSearchParams({ provider, generateImage: String(autoGenerateImages) });
     if (tone.trim().length > 0) {
       params.set("tone", tone);
     }
@@ -647,10 +651,12 @@ export default function HomePage() {
           void refreshSessionDetails(selectedSessionId);
           setIsGenerating(false);
           // 이미지 자동 생성
-          void (async () => {
-            const enriched = await generateAndInsertImages(payload.post.body);
-            setPostBodyDraft(enriched);
-          })();
+          if (autoGenerateImages) {
+            void (async () => {
+              const enriched = await generateAndInsertImages(payload.post.body);
+              setPostBodyDraft(enriched);
+            })();
+          }
           return;
         }
 
@@ -848,6 +854,17 @@ export default function HomePage() {
                   </button>
                 </div>
               </div>
+              <div className="instructionModeRow">
+                <button
+                  type="button"
+                  className={autoGenerateImages ? "modeToggle active" : "modeToggle"}
+                  onClick={() => setAutoGenerateImages(!autoGenerateImages)}
+                  disabled={isGenerating || isGeneratingImages}
+                  style={{ flex: 1, justifyContent: "center" }}
+                >
+                  Auto Images
+                </button>
+              </div>
             </div>
             {generateMode === "refine" && selectedPostId && (
               <span className="refineBadge">수정 대상: {generatedPost?.title ?? selectedPostId}</span>
@@ -867,6 +884,7 @@ export default function HomePage() {
                 disabled={isGenerating}
               />
             </label>
+
           </div>
 
           <div className="genPanelActions">
