@@ -6,6 +6,7 @@ import { AppModule } from "./app.module";
 import { SessionsService } from "./sessions/sessions.service";
 import type { UpdatePostPayload } from "./sessions/sessions.service";
 import { SourcesService } from "./sources/sources.service";
+import { ImageGenService } from "./generation/image-gen.service";
 
 type RouteHandler = (req: Request<Record<string, string>>, res: Response) => Promise<void>;
 
@@ -37,6 +38,7 @@ async function bootstrap(): Promise<void> {
 
   const sourcesService = app.get(SourcesService);
   const sessionsService = app.get(SessionsService);
+  const imageGenService = app.get(ImageGenService);
 
   const httpServer = app.getHttpAdapter().getInstance() as {
     get: (path: string, handler: RouteHandler) => void;
@@ -225,6 +227,39 @@ async function bootstrap(): Promise<void> {
   );
 
   const port = Number.parseInt(process.env.PORT ?? "4000", 10);
+
+  // ─── Image Generation ───
+
+  httpServer.post(
+    "/generate-image",
+    route(async (req) => {
+      const body = req.body as { prompt?: string };
+      if (!body.prompt) {
+        return { error: "prompt is required" };
+      }
+      const result = await imageGenService.generateImage(body.prompt);
+      if (!result) {
+        return { error: "Image generation failed. Check GEMINI_API_KEY." };
+      }
+      return result;
+    })
+  );
+
+  httpServer.post(
+    "/generate-blog-images",
+    route(async (req) => {
+      const body = req.body as { blogBody?: string; maxImages?: number };
+      if (!body.blogBody) {
+        return { images: [] };
+      }
+      const images = await imageGenService.generateBlogImages(
+        body.blogBody,
+        body.maxImages ?? 3
+      );
+      return { images };
+    })
+  );
+
   await app.listen(port);
 }
 

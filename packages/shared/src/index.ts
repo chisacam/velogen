@@ -37,6 +37,7 @@ export interface SourceSummary {
   type: SourceType;
   active: boolean;
   createdAt: string;
+  config?: RepoSourceConfig | NotionSourceConfig;
 }
 
 export interface CreateSessionDto {
