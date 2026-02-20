@@ -1,5 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { spawn } from "node:child_process";
+import { homedir } from "node:os";
 import type { AgentProvider } from "@velogen/shared";
 
 /**
@@ -111,7 +112,7 @@ export class AgentRunnerService {
          * `.mcp.json`에 설정하면 claude가 자동으로 읽습니다.
          */
         const command = process.env.CLAUDE_COMMAND ?? "claude";
-        const args = ["--print"];
+        const args = ["--print", "--skip-git-repo-check"];
         const model = process.env.CLAUDE_MODEL;
         if (model) args.push("--model", model);
         return { command, args, stdinInput: prompt, model };
@@ -123,7 +124,7 @@ export class AgentRunnerService {
          * `--approval-mode full-auto` 로 사람의 승인 없이 자동 실행합니다.
          */
         const command = process.env.CODEX_COMMAND ?? "codex";
-        const args = ["exec", "--full-auto"];
+        const args = ["exec", "--full-auto", "--skip-git-repo-check"];
         const model = process.env.CODEX_MODEL;
         if (model) args.push("--model", model);
         return { command, args, stdinInput: prompt, model };
@@ -170,6 +171,7 @@ export class AgentRunnerService {
     return new Promise((resolve, reject) => {
       const child = spawn(command, args, {
         stdio: ["pipe", "pipe", "pipe"],
+        cwd: homedir(),
         env: { ...process.env }
       });
 

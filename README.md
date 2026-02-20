@@ -43,6 +43,35 @@ npm run dev
 - API: `http://localhost:4000`
 - WEB: `http://localhost:3000`
 
+## 데스크톱 배포(Electron)
+
+비개발자도 실행 파일만으로 사용할 수 있도록 Electron 패키징을 지원합니다.
+
+- 개발 모드(웹+API+Electron 동시 실행):
+
+```bash
+npm run dev:desktop
+```
+
+- 데스크톱 배포 빌드(웹 정적 export + API dist + Electron 패키징):
+
+```bash
+npm run build:desktop
+```
+
+산출물은 `apps/desktop/dist`에 생성됩니다.
+
+배포 앱 동작 방식:
+- 웹은 정적 export(`apps/web/out`)를 로드
+- API는 앱 내부에서 로컬 프로세스로 실행(`PORT=4000`)
+- SQLite는 사용자 전용 경로(`app.getPath('userData')`)에 저장
+
+macOS(Apple Silicon)에서 `7za` 관련 오류가 나면 아래를 먼저 설치하세요.
+
+```bash
+brew install p7zip
+```
+
 ## AI 에이전트 연동
 
 지원 provider: `mock`, `claude`, `codex`, `opencode`, `gemini`

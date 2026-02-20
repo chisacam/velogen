@@ -30,10 +30,12 @@ body {
   width: min(1440px, 98vw);
   margin: 16px auto;
   display: grid;
-  grid-template-columns: 300px minmax(0, 1fr);
+  grid-template-columns: 260px minmax(0, 1fr);
   gap: 16px;
   min-height: calc(100vh - 32px);
 }
+
+/* ─── Side Nav ─── */
 
 .sideNav {
   position: sticky;
@@ -52,57 +54,44 @@ body {
 
 .menuList {
   display: grid;
-  gap: 8px;
-}
-
-.accordionItem {
-  display: grid;
-  gap: 4px;
+  gap: 6px;
 }
 
 .menuItem {
   display: flex;
   align-items: center;
   gap: 10px;
-  justify-content: space-between;
   width: 100%;
   text-align: left;
   border: 1px solid #2f505924;
   background: #ffffffd4;
   color: var(--ink);
+  transition: all 0.2s ease;
 }
 
 .menuIcon {
   display: inline-grid;
   place-items: center;
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   border-radius: 8px;
   border: 1px solid #2f505924;
   background: #ffffffa6;
-  font-size: 0.78rem;
+  font-size: 0.88rem;
   font-weight: 800;
-}
-
-.menuChevron {
-  margin-left: auto;
-  font-weight: 800;
-}
-
-.accordionHint {
-  margin: 0;
-  padding: 6px 10px 4px;
-  border-radius: 8px;
-  background: #ffffffa8;
-  border: 1px solid #2f505924;
-  color: var(--muted);
-  font-size: 0.86rem;
+  flex-shrink: 0;
 }
 
 .menuItem.active {
   background: linear-gradient(130deg, var(--accent), var(--accent-2));
   color: #fff;
   border-color: transparent;
+}
+
+.menuItem.active .menuIcon {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.3);
+  color: #fff;
 }
 
 .sideMeta {
@@ -115,26 +104,32 @@ body {
   margin: 4px 0 10px;
 }
 
+/* ─── Workspace ─── */
+
 .workspace {
   display: grid;
   gap: 12px;
   align-content: start;
+  position: relative;
 }
 
 .toastStack {
-  position: sticky;
-  top: 8px;
-  z-index: 20;
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 100;
   display: grid;
   gap: 8px;
+  max-width: 360px;
 }
 
 .toastItem {
-  padding: 10px 12px;
+  padding: 10px 14px;
   border-radius: 10px;
   border: 1px solid #2f505924;
   background: #ffffffea;
   box-shadow: 0 8px 16px #16323a1a;
+  animation: slideIn 0.3s ease-out;
 }
 
 .toastItem.info {
@@ -150,7 +145,19 @@ body {
 }
 
 .workspaceHeader h2 {
-  margin: 0 0 6px;
+  margin: 0;
+}
+
+.workspaceHeader {
+  display: flex;
+  align-items: center;
+  min-height: 48px;
+}
+
+.workspaceHeaderTitle {
+  gap: 10px;
+  background: #f8fdf8;
+  border: 1px solid #2f505915;
 }
 
 .workspaceHeader p {
@@ -163,17 +170,7 @@ body {
   gap: 14px;
 }
 
-.editorTopBar {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  align-items: flex-end;
-}
-
-.editorHint {
-  margin: 6px 0 0;
-  color: var(--muted);
-}
+/* ─── Card ─── */
 
 .card {
   background: var(--card);
@@ -183,12 +180,6 @@ body {
   padding: 18px;
   backdrop-filter: blur(8px);
   animation: rise 0.45s ease-out;
-}
-
-.hero h1 {
-  margin: 8px 0 6px;
-  font-size: clamp(1.5rem, 1.25rem + 1.2vw, 2.2rem);
-  letter-spacing: 0.01em;
 }
 
 .eyebrow {
@@ -208,6 +199,8 @@ body {
   margin-top: 12px;
   color: var(--muted);
 }
+
+/* ─── Form ─── */
 
 .grid.two {
   display: grid;
@@ -253,6 +246,12 @@ button {
   padding: 10px 14px;
   font-weight: 700;
   cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px #007a7440;
 }
 
 button:disabled {
@@ -266,11 +265,27 @@ button.ghost {
   border: 1px solid #9d2b2b40;
 }
 
+button.ghost:hover:not(:disabled) {
+  box-shadow: 0 4px 12px #9d2b2b20;
+}
+
+button.secondary {
+  background: #fff;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+}
+
+button.secondary:hover:not(:disabled) {
+  background: #f0faf9;
+}
+
 .row {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
 }
+
+/* ─── Source Management ─── */
 
 .tableLike {
   display: grid;
@@ -288,10 +303,126 @@ button.ghost {
   background: #ffffffc0;
 }
 
+/* ── Period Slider ── */
+
+.periodSlider {
+  display: grid;
+  gap: 8px;
+}
+
+.periodSliderLabel {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.periodSliderTrack {
+  display: flex;
+  gap: 0;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid #2f505930;
+}
+
+.periodSliderOption {
+  flex: 1;
+  padding: 8px 4px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 0;
+  background: #ffffffd0;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.18s ease;
+  text-align: center;
+}
+
+.periodSliderOption:not(:last-child) {
+  border-right: 1px solid #2f505920;
+}
+
+.periodSliderOption:hover:not(.active) {
+  background: #f0faf9;
+  color: var(--accent);
+  transform: none;
+  box-shadow: none;
+}
+
+.periodSliderOption.active {
+  background: linear-gradient(130deg, var(--accent), var(--accent-2));
+  color: #fff;
+  transform: none;
+  box-shadow: none;
+}
+
+/* ─── Posts ─── */
+
 .postLink {
   background: transparent;
   color: var(--ink);
   border: 1px solid #2f505924;
+}
+
+.postCard {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid #2f505924;
+  border-radius: 12px;
+  background: #ffffffd0;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.postCard:hover {
+  border-color: var(--accent);
+  box-shadow: 0 4px 12px #007a7420;
+}
+
+.postCardTitle {
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.postCardMeta {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.postCardBadge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.postCardBadge.draft {
+  background: #fff5d9;
+  color: #8a6d00;
+}
+
+.postCardBadge.published {
+  background: #d5f5e3;
+  color: #1a7a3a;
+}
+
+/* ─── Editor ─── */
+
+.editorTopBar {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: flex-end;
+}
+
+.editorHint {
+  margin: 6px 0 0;
+  color: var(--muted);
 }
 
 .mdPane {
@@ -364,14 +495,162 @@ button.ghost {
   font-size: 0.8rem;
 }
 
-/* Instruction Bar */
+/* ─── Floating Generation Panel ─── */
+
+.genPanelFloating {
+  position: fixed;
+  bottom: 24px;
+  right: 32px;
+  z-index: 50;
+  display: grid;
+  place-items: end;
+  pointer-events: none;
+}
+
+/* Collapsed: small pill */
+.genPanelCollapsed {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 26px;
+  background: linear-gradient(130deg, var(--accent), var(--accent-2));
+  color: #fff;
+  border: none;
+  box-shadow: 0 8px 28px #007a7445;
+  cursor: pointer;
+  font-size: 1.3rem;
+  transition: opacity 0.3s cubic-bezier(0.22, 1, 0.36, 1), transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  transform-origin: center center;
+  grid-area: 1 / 1;
+}
+
+.genPanelCollapsed:hover {
+  transform: scale(1.08);
+  box-shadow: 0 12px 36px #007a7460;
+}
+
+.genPanelCollapsed.generating {
+  width: 56px;
+  height: 56px;
+  animation: pulseGen 1.5s ease-in-out infinite;
+}
+
+/* Expanded panel */
+.genPanelExpanded {
+  width: min(680px, 90vw);
+  background: var(--card);
+  border: 1px solid var(--stroke);
+  border-radius: 20px;
+  box-shadow: 0 16px 48px #0a2c3830;
+  backdrop-filter: blur(12px);
+  overflow: hidden;
+  transition: opacity 0.3s cubic-bezier(0.22, 1, 0.36, 1), transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  /* The button is 52px wide and 52px high, placed at bottom-right. 
+     Its center is 26px from the right and 26px from the bottom. */
+  transform-origin: calc(100% - 26px) calc(100% - 26px);
+  grid-area: 1 / 1;
+}
+
+/* State: closed — pill visible, panel hidden */
+.genPanelFloating.closed .genPanelCollapsed {
+  opacity: 1;
+  transform: scale(1);
+  pointer-events: auto;
+}
+
+.genPanelFloating.closed .genPanelExpanded {
+  opacity: 0;
+  transform: scale(0.08);
+  pointer-events: none;
+}
+
+/* State: open — pill hidden, panel visible */
+.genPanelFloating.open .genPanelCollapsed {
+  opacity: 0;
+  transform: scale(0.5);
+  pointer-events: none;
+}
+
+.genPanelFloating.open .genPanelExpanded {
+  opacity: 1;
+  transform: scale(1);
+  pointer-events: auto;
+}
+
+.genPanelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid #2f505915;
+  background: linear-gradient(135deg, #f0f8ff 0%, #e8f5e9 100%);
+}
+
+.genPanelTitle {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.genPanelClose {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: #ffffff90;
+  border: 1px solid #2f505920;
+  color: var(--muted);
+  font-size: 1rem;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.15s ease;
+}
+
+.genPanelClose:hover {
+  background: #fff;
+  color: var(--ink);
+  transform: none;
+  box-shadow: none;
+}
+
+.genPanelBody {
+  padding: 16px 18px;
+  display: grid;
+  gap: 14px;
+}
+
+.genPanelRow {
+  display: flex;
+  gap: 24px;
+  align-items: center;
+}
+
+.genPanelRow .instructionModeRow {
+  flex: 0 0 auto;
+}
+
+.genPanelRow .instructionLabel {
+  min-width: 48px;
+}
+
+.genPanelActions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  padding: 0 18px 16px;
+}
+
+/* ── Mode Toggle ── */
+
 .instructionBar {
   display: grid;
   gap: 12px;
-  padding: 14px 16px;
-  border-radius: 12px;
-  background: linear-gradient(135deg, #f0f8ff 0%, #e8f5e9 100%);
-  border: 1px solid #2f505924;
 }
 
 .instructionModeRow {
@@ -399,7 +678,7 @@ button.ghost {
 
 .modeToggleGroup {
   display: flex;
-  gap: 6px;
+  gap: 4px;
 }
 
 .modeToggle {
@@ -418,6 +697,8 @@ button.ghost {
   background: #fff;
   border-color: var(--accent);
   color: var(--accent);
+  transform: none;
+  box-shadow: none;
 }
 
 .modeToggle.active {
@@ -453,7 +734,7 @@ button.ghost {
 
 .instructionTextarea {
   resize: vertical;
-  min-height: 72px;
+  min-height: 60px;
   font-size: 0.9rem;
   border-radius: 10px;
   background: #ffffffd9;
@@ -472,6 +753,122 @@ button.ghost {
   cursor: not-allowed;
 }
 
+/* ── Loading Spinner ── */
+
+.btnSpinner {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.spinnerDots {
+  display: inline-flex;
+  gap: 3px;
+  align-items: center;
+}
+
+.spinnerDots span {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: dotBounce 1.2s ease-in-out infinite;
+}
+
+.spinnerDots span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.spinnerDots span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+/* ── Editor View Mode Tabs ── */
+
+.viewModeTabs {
+  display: flex;
+  gap: 0;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid #2f505930;
+  width: fit-content;
+}
+
+.viewModeTab {
+  padding: 6px 16px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 0;
+  background: #ffffffd0;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.viewModeTab:not(:last-child) {
+  border-right: 1px solid #2f505920;
+}
+
+.viewModeTab:hover:not(.active) {
+  background: #f0faf9;
+  color: var(--accent);
+  transform: none;
+  box-shadow: none;
+}
+
+.viewModeTab.active {
+  background: linear-gradient(130deg, var(--accent), var(--accent-2));
+  color: #fff;
+  transform: none;
+  box-shadow: none;
+}
+
+/* ── Editor toolbar ── */
+
+.editorToolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.editorToolbarRight {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* ── Auto title ── */
+
+.autoTitleBar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: #f8fdf8;
+  border: 1px solid #2f505915;
+}
+
+.autoTitleLabel {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+}
+
+.autoTitleValue {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 pre {
   white-space: pre-wrap;
@@ -484,14 +881,29 @@ pre {
   max-height: 480px;
 }
 
+/* ─── Animations ─── */
+
 @keyframes rise {
   from {
     opacity: 0;
     transform: translateY(6px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
   }
 }
 
@@ -499,6 +911,7 @@ pre {
   0% {
     background: #c8f4f0;
   }
+
   100% {
     background: transparent;
   }
@@ -508,10 +921,67 @@ pre {
   0% {
     box-shadow: 0 0 0 0 #f2bf2db0;
   }
+
   100% {
     box-shadow: 0 0 0 8px transparent;
   }
 }
+
+@keyframes pulseGen {
+
+  0%,
+  100% {
+    box-shadow: 0 8px 28px #007a7445;
+  }
+
+  50% {
+    box-shadow: 0 8px 40px #007a7470;
+  }
+}
+
+@keyframes dotBounce {
+
+  0%,
+  80%,
+  100% {
+    opacity: 0.3;
+    transform: scale(0.8);
+  }
+
+  40% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+}
+
+@keyframes panelSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes spinRotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.collapsedSpinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spinRotate 0.8s linear infinite;
+}
+
+/* ─── Responsive ─── */
 
 @media (max-width: 900px) {
   .appShell {
@@ -537,4 +1007,44 @@ pre {
   .mdPane.mode-split {
     grid-template-columns: 1fr;
   }
+
+  .genPanelExpanded {
+    width: 95vw;
+  }
+}
+
+/* ─── Sidebar source list ─── */
+
+.sideSourceList {
+  list-style: none;
+  margin: 4px 0 10px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sideSourceList li {
+  font-size: 0.9rem;
+  color: var(--ink);
+  padding: 2px 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sideSourceList li::before {
+  content: "•";
+  color: var(--accent);
+  font-size: 1.2em;
+  line-height: 1;
+}
+
+.mutedSmall {
+  font-size: 0.9rem;
+  color: var(--muted);
+  margin: 4px 0 10px;
 }

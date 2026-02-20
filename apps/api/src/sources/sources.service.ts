@@ -15,19 +15,20 @@ interface SourceRow {
 
 @Injectable()
 export class SourcesService {
-  constructor(private readonly databaseService: DatabaseService) {}
+  constructor(private readonly databaseService: DatabaseService) { }
 
   listSources(): SourceSummary[] {
     const rows = this.databaseService.connection
-      .prepare("SELECT id, name, type, active, created_at FROM sources ORDER BY created_at DESC")
-      .all() as Array<Pick<SourceRow, "id" | "name" | "type" | "active" | "created_at">>;
+      .prepare("SELECT id, name, type, active, config_json, created_at FROM sources ORDER BY created_at DESC")
+      .all() as Array<Pick<SourceRow, "id" | "name" | "type" | "active" | "config_json" | "created_at">>;
 
     return rows.map((row) => ({
       id: row.id,
       name: row.name,
       type: row.type,
       active: row.active === 1,
-      createdAt: row.created_at
+      createdAt: row.created_at,
+      config: JSON.parse(row.config_json) as RepoSourceConfig | NotionSourceConfig
     }));
   }
 

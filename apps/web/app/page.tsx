@@ -53,7 +53,7 @@ interface PostRevisionDetail extends PostRevision {
   body: string;
 }
 
-type WorkspacePanel = "session" | "sources" | "posts" | "editor";
+type WorkspacePanel = "session" | "sources" | "editor" | "posts";
 
 type ToastKind = "info" | "success" | "error";
 
@@ -62,6 +62,13 @@ interface ToastMessage {
   message: string;
   kind: ToastKind;
 }
+
+const PERIOD_OPTIONS = [
+  { label: "1개월", value: "1" },
+  { label: "3개월", value: "3" },
+  { label: "6개월", value: "6" },
+  { label: "1년", value: "12" },
+] as const;
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
 
@@ -98,6 +105,27 @@ async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
   return (await response.json()) as T;
 }
 
+function formatSourceDisplayValue(source: SourceSummary): string {
+  if (!source.config) return source.id;
+
+  if (source.type === "repo") {
+    const rConfig = source.config as import("@velogen/shared").RepoSourceConfig;
+    if (rConfig.repoUrl && rConfig.repoUrl.length > 0) return rConfig.repoUrl;
+    if (rConfig.repoPath && rConfig.repoPath.length > 0) return rConfig.repoPath;
+  } else if (source.type === "notion") {
+    const nConfig = source.config as import("@velogen/shared").NotionSourceConfig;
+    if (nConfig.pageId && nConfig.pageId.length > 0) return nConfig.pageId;
+  }
+
+  return source.id;
+}
+
+/** 마크다운의 첫 번째 H1 제목을 추출합니다. */
+function extractTitleFromMarkdown(markdown: string): string | null {
+  const match = markdown.match(/^#\s+(.+)$/m);
+  return match ? match[1].trim() : null;
+}
+
 export default function HomePage() {
   const [sources, setSources] = useState<SourceSummary[]>([]);
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
@@ -108,8 +136,9 @@ export default function HomePage() {
   const [selectedPostId, setSelectedPostId] = useState("");
   const [editorMode, setEditorMode] = useState<"edit" | "preview" | "split">("split");
   const [activePanel, setActivePanel] = useState<WorkspacePanel>("session");
-  const [expandedMenu, setExpandedMenu] = useState<WorkspacePanel | null>("session");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isGeneratingImages, setIsGeneratingImages] = useState(false);
+  const [autoGenerateImages, setAutoGenerateImages] = useState(false);
   const [flashHeading, setFlashHeading] = useState(false);
   const [flashCitation, setFlashCitation] = useState(false);
   const [postTitleDraft, setPostTitleDraft] = useState("");
@@ -133,16 +162,19 @@ export default function HomePage() {
   const [notionToken, setNotionToken] = useState("");
   const [notionMonths, setNotionMonths] = useState("3");
   const [status, setStatus] = useState("Ready");
+  const [genPanelOpen, setGenPanelOpen] = useState(true);
   const streamRef = useRef<EventSource | null>(null);
   const streamParseErrorNotifiedRef = useRef(false);
   const previousHeadingCountRef = useRef(0);
   const previousCitationCountRef = useRef(0);
+
   const selectedSession = useMemo(() => sessions.find((item) => item.id === selectedSessionId) ?? null, [sessions, selectedSessionId]);
-  const navItems: Array<{ key: WorkspacePanel; icon: string; label: string; hint: string }> = [
-    { key: "session", icon: "S", label: "Session", hint: selectedSession?.title ?? "No active session" },
-    { key: "sources", icon: "R", label: "Sources", hint: `${sources.length} in pool / ${sessionSources.length} attached` },
-    { key: "posts", icon: "P", label: "Posts", hint: `${posts.length} generated drafts` },
-    { key: "editor", icon: "E", label: "Editor", hint: isGenerating ? "Streaming output..." : "Markdown draft studio" }
+
+  const navItems: Array<{ key: WorkspacePanel; icon: string; label: string }> = [
+    { key: "session", icon: "S", label: "Session" },
+    { key: "sources", icon: "R", label: "Sources" },
+    { key: "editor", icon: "E", label: "Editor" },
+    { key: "posts", icon: "P", label: "Posts" },
   ];
 
   const pushToast = useCallback((message: string, kind: ToastKind = "info") => {
@@ -153,9 +185,58 @@ export default function HomePage() {
     }, 3200);
   }, []);
 
+  /** 생성된 마크다운의 H2 섹션 아래에 이미지를 삽입합니다. */
+  const insertImagesIntoMarkdown = useCallback(
+    (body: string, images: Array<{ sectionTitle: string; mimeType: string; base64: string }>): string => {
+      let result = body;
+      for (const img of images) {
+        const escapedTitle = img.sectionTitle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const regex = new RegExp(`(^##\\s+${escapedTitle}.*$)`, "m");
+        const dataUri = `data:${img.mimeType};base64,${img.base64}`;
+        const imgMarkdown = `\n\n![${img.sectionTitle}](${dataUri})\n`;
+        result = result.replace(regex, `$1${imgMarkdown}`);
+      }
+      return result;
+    },
+    []
+  );
+
+  /** 블로그 본문에서 섹션 제목을 추출하고 이미지를 생성하여 마크다운에 삽입합니다. */
+  const generateAndInsertImages = useCallback(
+    async (body: string): Promise<string> => {
+      setIsGeneratingImages(true);
+      setStatus("Generating section images...");
+      pushToast("Generating section images...", "info");
+      try {
+        const resp = await apiRequest<{
+          images: Array<{ sectionTitle: string; mimeType: string; base64: string }>;
+        }>("/generate-blog-images", {
+          method: "POST",
+          body: JSON.stringify({ blogBody: body, maxImages: 3 }),
+        });
+        if (resp.images.length > 0) {
+          const enriched = insertImagesIntoMarkdown(body, resp.images);
+          pushToast(`${resp.images.length} images generated`, "success");
+          return enriched;
+        }
+        pushToast("No images generated (check GEMINI_API_KEY)", "info");
+        return body;
+      } catch (error) {
+        pushToast(
+          `Image generation failed: ${error instanceof Error ? error.message : "unknown error"}`,
+          "error"
+        );
+        return body;
+      } finally {
+        setIsGeneratingImages(false);
+        setStatus("Ready");
+      }
+    },
+    [insertImagesIntoMarkdown, pushToast]
+  );
+
   const setPanel = useCallback((panel: WorkspacePanel) => {
     setActivePanel(panel);
-    setExpandedMenu((current) => (current === panel ? null : panel));
   }, []);
 
   const refreshSources = useCallback(async (): Promise<void> => {
@@ -283,6 +364,15 @@ export default function HomePage() {
     previousHeadingCountRef.current = headingCount;
     previousCitationCountRef.current = citationCount;
   }, [postBodyDraft]);
+
+  // 생성된 마크다운에서 제목 자동 추출
+  useEffect(() => {
+    if (isGenerating || !postBodyDraft) return;
+    const extracted = extractTitleFromMarkdown(postBodyDraft);
+    if (extracted && extracted.length > 0) {
+      setPostTitleDraft(extracted);
+    }
+  }, [isGenerating, postBodyDraft]);
 
   const onCreateSession = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
@@ -484,7 +574,8 @@ export default function HomePage() {
             tone: tone || undefined,
             format: format || undefined,
             userInstruction: userInstruction || undefined,
-            refinePostId: generateMode === "refine" && selectedPostId ? selectedPostId : undefined
+            refinePostId: generateMode === "refine" && selectedPostId ? selectedPostId : undefined,
+            generateImage: autoGenerateImages
           })
         });
         setGeneratedPost(post);
@@ -495,17 +586,22 @@ export default function HomePage() {
         await refreshSessionDetails(selectedSessionId);
         setStatus("Blog post generated");
         pushToast("Blog post generated", "success");
+        setIsGenerating(false);
+        // 이미지 자동 생성
+        if (autoGenerateImages) {
+          const enriched = await generateAndInsertImages(post.body);
+          setPostBodyDraft(enriched);
+        }
       } catch (error) {
         const message = error instanceof Error ? error.message : "Failed to generate";
         setStatus(message);
         pushToast(message, "error");
-      } finally {
         setIsGenerating(false);
       }
       return;
     }
 
-    const params = new URLSearchParams({ provider });
+    const params = new URLSearchParams({ provider, generateImage: String(autoGenerateImages) });
     if (tone.trim().length > 0) {
       params.set("tone", tone);
     }
@@ -554,6 +650,13 @@ export default function HomePage() {
           pushToast("Blog post generated", "success");
           void refreshSessionDetails(selectedSessionId);
           setIsGenerating(false);
+          // 이미지 자동 생성
+          if (autoGenerateImages) {
+            void (async () => {
+              const enriched = await generateAndInsertImages(payload.post.body);
+              setPostBodyDraft(enriched);
+            })();
+          }
           return;
         }
 
@@ -611,6 +714,25 @@ export default function HomePage() {
     }
   };
 
+  const onExportMarkdown = (): void => {
+    if (!postBodyDraft) {
+      pushToast("No content to export", "error");
+      return;
+    }
+    const title = postTitleDraft || "untitled";
+    const fileName = `${title.replace(/[^a-zA-Z0-9가-힣\s-_]/g, "").replace(/\s+/g, "-").toLowerCase()}.md`;
+    const blob = new Blob([postBodyDraft], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    pushToast(`Exported: ${fileName}`, "success");
+  };
+
   const onLoadRevision = async (revisionId: string): Promise<void> => {
     if (!selectedSessionId || !selectedPostId) {
       setStatus("Select a post first");
@@ -633,6 +755,152 @@ export default function HomePage() {
     }
   };
 
+  // ─── Render helpers ───
+
+  const renderPeriodSlider = (value: string, onChange: (v: string) => void) => (
+    <div className="periodSlider">
+      <span className="periodSliderLabel">기간 설정</span>
+      <div className="periodSliderTrack">
+        {PERIOD_OPTIONS.map((opt) => (
+          <button
+            key={opt.value}
+            type="button"
+            className={`periodSliderOption ${value === opt.value ? "active" : ""}`}
+            onClick={() => onChange(opt.value)}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+
+  const renderGenerateButton = () => (
+    <button type="button" onClick={onGenerate} disabled={isGenerating}>
+      {isGenerating ? (
+        <span className="btnSpinner">
+          Generating
+          <span className="spinnerDots"><span /><span /><span /></span>
+        </span>
+      ) : (
+        "✦ Generate Blog"
+      )}
+    </button>
+  );
+
+  const renderGenPanel = () => {
+    if (activePanel !== "editor") return null;
+
+    return (
+      <div className={`genPanelFloating ${genPanelOpen ? "open" : "closed"}`}>
+        {/* Collapsed pill — visible when closed */}
+        <button
+          type="button"
+          className={`genPanelCollapsed ${isGenerating || isGeneratingImages ? "generating" : ""}`}
+          onClick={() => setGenPanelOpen(true)}
+          title="Open generation panel"
+        >
+          {isGenerating || isGeneratingImages ? <div className="collapsedSpinner" /> : "⚙"}
+        </button>
+
+        {/* Expanded panel — visible when open */}
+        <div className="genPanelExpanded">
+          <div className="genPanelHeader">
+            <span className="genPanelTitle">⚙ Generation Settings</span>
+            <button type="button" className="genPanelClose" onClick={() => setGenPanelOpen(false)}>×</button>
+          </div>
+
+          <div className="genPanelBody">
+            <div className="genPanelRow">
+              <div className="instructionModeRow">
+                <span className="instructionLabel">Mode</span>
+                <div className="modeToggleGroup">
+                  <button
+                    id="mode-new"
+                    type="button"
+                    className={generateMode === "new" ? "modeToggle active" : "modeToggle"}
+                    onClick={() => setGenerateMode("new")}
+                  >
+                    ✦ New Draft
+                  </button>
+                  <button
+                    id="mode-refine"
+                    type="button"
+                    className={generateMode === "refine" ? "modeToggle active" : "modeToggle"}
+                    onClick={() => setGenerateMode("refine")}
+                    disabled={!selectedPostId}
+                    title={!selectedPostId ? "먼저 글을 선택하거나 생성하세요" : "현재 에디터의 글을 수정합니다"}
+                  >
+                    ✎ Refine
+                  </button>
+                </div>
+              </div>
+              <div className="instructionModeRow">
+                <span className="instructionLabel">Status</span>
+                <div className="modeToggleGroup">
+                  <button
+                    type="button"
+                    className={postStatusDraft === "draft" ? "modeToggle active" : "modeToggle"}
+                    onClick={() => setPostStatusDraft("draft")}
+                  >
+                    Draft
+                  </button>
+                  <button
+                    type="button"
+                    className={postStatusDraft === "published" ? "modeToggle active" : "modeToggle"}
+                    onClick={() => setPostStatusDraft("published")}
+                  >
+                    Published
+                  </button>
+                </div>
+              </div>
+              <div className="instructionModeRow">
+                <button
+                  type="button"
+                  className={autoGenerateImages ? "modeToggle active" : "modeToggle"}
+                  onClick={() => setAutoGenerateImages(!autoGenerateImages)}
+                  disabled={isGenerating || isGeneratingImages}
+                  style={{ flex: 1, justifyContent: "center" }}
+                >
+                  Auto Images
+                </button>
+              </div>
+            </div>
+            {generateMode === "refine" && selectedPostId && (
+              <span className="refineBadge">수정 대상: {generatedPost?.title ?? selectedPostId}</span>
+            )}
+
+            <label className="instructionInputWrap">
+              <span className="instructionLabel">Agent Instruction <span className="optionalTag">(optional)</span></span>
+              <textarea
+                id="user-instruction"
+                className="instructionTextarea"
+                value={userInstruction}
+                onChange={(event) => setUserInstruction(event.target.value)}
+                placeholder={generateMode === "refine"
+                  ? "예: 3번째 섹션을 더 자세하게 작성해줘. 코드 예시를 추가해줘."
+                  : "예: 배포 관련 내용을 주인공으로 삼아줘. 결론을 더 강조해줘."}
+                rows={2}
+                disabled={isGenerating}
+              />
+            </label>
+
+          </div>
+
+          <div className="genPanelActions">
+            {renderGenerateButton()}
+            <button type="button" className="secondary" onClick={onSavePost} disabled={!selectedPostId || isGenerating}>
+              💾 Save
+            </button>
+            <button type="button" className="secondary" onClick={onExportMarkdown} disabled={!postBodyDraft}>
+              📄 Export .md
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <main className="appShell">
       <aside className="sideNav card">
@@ -643,51 +911,53 @@ export default function HomePage() {
         </div>
 
         <nav className="menuList">
-          {navItems.map((item) => {
-            const opened = expandedMenu === item.key;
-            const active = activePanel === item.key;
-            return (
-              <div key={item.key} className={opened ? "accordionItem open" : "accordionItem"}>
-                <button
-                  type="button"
-                  className={active ? "menuItem active" : "menuItem"}
-                  onClick={() => {
-                    setPanel(item.key);
-                  }}
-                >
-                  <span className="menuIcon" aria-hidden="true">
-                    {item.icon}
-                  </span>
-                  <span>{item.label}</span>
-                  <span className="menuChevron" aria-hidden="true">
-                    {opened ? "-" : "+"}
-                  </span>
-                </button>
-                {opened ? <p className="accordionHint">{item.hint}</p> : null}
-              </div>
-            );
-          })}
+          {navItems.map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              className={activePanel === item.key ? "menuItem active" : "menuItem"}
+              onClick={() => setPanel(item.key)}
+            >
+              <span className="menuIcon" aria-hidden="true">
+                {item.icon}
+              </span>
+              <span>{item.label}</span>
+            </button>
+          ))}
         </nav>
 
         <div className="sideMeta">
           <strong>Active Session</strong>
           <p>{selectedSession?.title ?? "No session selected"}</p>
           <strong>Attached Sources</strong>
-          <p>{sessionSources.length}</p>
+          {sessionSources.length > 0 ? (
+            <ul className="sideSourceList">
+              {sessionSources.map((s) => (
+                <li key={s.sourceId}>{s.name}</li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mutedSmall">No sources attached</p>
+          )}
           <strong>Generated Posts</strong>
           <p>{posts.length}</p>
         </div>
       </aside>
 
       <section className="workspace">
-        <header className="workspaceHeader card">
-          <h2>
-            {activePanel === "session" && "Session & Generation"}
-            {activePanel === "sources" && "Source Management"}
-            {activePanel === "posts" && "Post List"}
-            {activePanel === "editor" && "Markdown Editor & Preview"}
-          </h2>
-          <p>왼쪽 메뉴에서 작업 영역을 전환하세요. 에디터는 실시간으로 미리보기를 반영합니다.</p>
+        <header className={`workspaceHeader card ${activePanel === "editor" ? "workspaceHeaderTitle" : ""}`}>
+          {activePanel === "editor" ? (
+            <>
+              <span className="autoTitleLabel">Title</span>
+              <span className="autoTitleValue">{postTitleDraft || "생성된 글이 없습니다"}</span>
+            </>
+          ) : (
+            <h2>
+              {activePanel === "session" && "Session & Generation"}
+              {activePanel === "sources" && "Source Management"}
+              {activePanel === "posts" && "Post List"}
+            </h2>
+          )}
         </header>
 
         {toasts.length > 0 ? (
@@ -700,6 +970,7 @@ export default function HomePage() {
           </div>
         ) : null}
 
+        {/* ─── Session Panel ─── */}
         {activePanel === "session" ? (
           <div className="workspaceBody card">
             <div className="grid two">
@@ -766,6 +1037,7 @@ export default function HomePage() {
           </div>
         ) : null}
 
+        {/* ─── Sources Panel ─── */}
         {activePanel === "sources" ? (
           <div className="workspaceBody card">
             <div className="grid two">
@@ -784,10 +1056,7 @@ export default function HomePage() {
                     Remote Repo URL
                     <input value={repoUrl} onChange={(event) => setRepoUrl(event.target.value)} placeholder="https://github.com/org/repo.git" />
                   </label>
-                  <label>
-                    Since Months
-                    <input value={repoMonths} onChange={(event) => setRepoMonths(event.target.value)} type="number" min={1} />
-                  </label>
+                  {renderPeriodSlider(repoMonths, setRepoMonths)}
                   <label>
                     Committers
                     <input value={repoCommitters} onChange={(event) => setRepoCommitters(event.target.value)} placeholder="alice,bob" />
@@ -811,10 +1080,7 @@ export default function HomePage() {
                     Notion Token
                     <input value={notionToken} onChange={(event) => setNotionToken(event.target.value)} required />
                   </label>
-                  <label>
-                    Since Months
-                    <input value={notionMonths} onChange={(event) => setNotionMonths(event.target.value)} type="number" min={1} />
-                  </label>
+                  {renderPeriodSlider(notionMonths, setNotionMonths)}
                   <button type="submit">Save Notion Source</button>
                 </form>
               </div>
@@ -832,7 +1098,8 @@ export default function HomePage() {
                       <div>
                         <strong>{source.name}</strong>
                         <p>
-                          {source.type} / {source.id}
+                          <span style={{ color: "var(--accent)" }}>{source.type}</span> |{" "}
+                          {formatSourceDisplayValue(source)}
                         </p>
                       </div>
                       <div className="row">
@@ -856,142 +1123,65 @@ export default function HomePage() {
             </div>
 
             <h3>Attached Sources</h3>
-            {sessionSources.length === 0 ? (
-              <p>No attached sources.</p>
-            ) : (
-              <ul>
-                {sessionSources.map((source) => (
-                  <li key={source.sourceId} className="entry">
-                    <span>
-                      {source.name} ({source.type})
-                    </span>
-                    <button type="button" className="tinyButton" onClick={() => void onSyncSource(source.sourceId)}>
-                      Sync
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
+            <div className="tableLike">
+              {sessionSources.length === 0 ? (
+                <p>No attached sources.</p>
+              ) : (
+                sessionSources.map((sessionSource) => {
+                  const fullSource = sources.find((s) => s.id === sessionSource.sourceId);
+                  return (
+                    <div key={sessionSource.sourceId} className="entry">
+                      <div>
+                        <strong>{sessionSource.name}</strong>
+                        <p>
+                          <span style={{ color: "var(--accent)" }}>{sessionSource.type}</span> |{" "}
+                          {fullSource ? formatSourceDisplayValue(fullSource) : sessionSource.sourceId}
+                        </p>
+                      </div>
+                      <div className="row">
+                        <button type="button" onClick={() => void onSyncSource(sessionSource.sourceId)}>
+                          Sync
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
           </div>
         ) : null}
 
-        {activePanel === "posts" ? (
-          <div className="workspaceBody card">
-            <h3>Generated Posts</h3>
-            {posts.length === 0 ? (
-              <p>No posts yet.</p>
-            ) : (
-              <ul>
-                {posts.map((post) => (
-                  <li key={post.id}>
-                    <button
-                      type="button"
-                      className="postLink"
-                      onClick={() => {
-                        setSelectedPostId(post.id);
-                        setPanel("editor");
-                      }}
-                    >
-                      {post.title} - {post.provider} - {post.status} - {new Date(post.updatedAt).toLocaleString()}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        ) : null}
-
+        {/* ─── Editor Panel ─── */}
         {activePanel === "editor" ? (
           <div className="workspaceBody card">
-            <div className="editorTopBar">
-              <div>
-                <h3>Markdown Draft Studio</h3>
-                <p className="editorHint">
-                  {isGenerating ? "Generating... incoming text is streamed below." : "Generate from session, then refine in markdown."}
-                </p>
-              </div>
-              <div className="row">
-                <button type="button" onClick={onGenerate} disabled={isGenerating}>
-                  {isGenerating ? "Generating..." : "Generate Blog"}
-                </button>
-                <button type="button" onClick={onSavePost} disabled={!selectedPostId || isGenerating}>
-                  Save Markdown
-                </button>
-              </div>
-            </div>
-
-            <div className="instructionBar">
-              <div className="instructionModeRow">
-                <span className="instructionLabel">Generation Mode</span>
-                <div className="modeToggleGroup">
-                  <button
-                    id="mode-new"
-                    type="button"
-                    className={generateMode === "new" ? "modeToggle active" : "modeToggle"}
-                    onClick={() => setGenerateMode("new")}
-                  >
-                    ✦ New Draft
-                  </button>
-                  <button
-                    id="mode-refine"
-                    type="button"
-                    className={generateMode === "refine" ? "modeToggle active" : "modeToggle"}
-                    onClick={() => setGenerateMode("refine")}
-                    disabled={!selectedPostId}
-                    title={!selectedPostId ? "먼저 글을 선택하거나 생성하세요" : "현재 에디터의 글을 수정합니다"}
-                  >
-                    ✎ Refine Current
-                  </button>
-                </div>
-                {generateMode === "refine" && selectedPostId && (
-                  <span className="refineBadge">수정 대상: {generatedPost?.title ?? selectedPostId}</span>
-                )}
-              </div>
-              <label className="instructionInputWrap">
-                <span className="instructionLabel">Agent Instruction <span className="optionalTag">(optional)</span></span>
-                <textarea
-                  id="user-instruction"
-                  className="instructionTextarea"
-                  value={userInstruction}
-                  onChange={(event) => setUserInstruction(event.target.value)}
-                  placeholder={generateMode === "refine"
-                    ? "예: 3번째 섹션을 더 자세하게 작성해줘. 코드 예시를 추가해줘."
-                    : "예: 배포 관련 내용을 주인공으로 삼아줘. 결론을 더 강조해줘."}
-                  rows={3}
-                  disabled={isGenerating}
-                />
-              </label>
-            </div>
-
             {generatedPost || isGenerating ? (
               <>
-                <label>
-                  Title
-                  <input value={postTitleDraft} onChange={(event) => setPostTitleDraft(event.target.value)} />
-                </label>
-                <div className="row">
-                  <label>
-                    Status
-                    <select value={postStatusDraft} onChange={(event) => setPostStatusDraft(event.target.value as "draft" | "published")}>
-                      <option value="draft">draft</option>
-                      <option value="published">published</option>
-                    </select>
-                  </label>
-                  <label>
-                    Mode
-                    <select value={editorMode} onChange={(event) => setEditorMode(event.target.value as "edit" | "preview" | "split")}>
-                      <option value="split">split</option>
-                      <option value="edit">edit</option>
-                      <option value="preview">preview</option>
-                    </select>
-                  </label>
+
+                {/* Editor toolbar */}
+                <div className="editorToolbar">
+                  <div className="viewModeTabs">
+                    {(["split", "edit", "preview"] as const).map((mode) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        className={`viewModeTab ${editorMode === mode ? "active" : ""}`}
+                        onClick={() => setEditorMode(mode)}
+                      >
+                        {mode === "split" ? "Split" : mode === "edit" ? "Edit" : "Preview"}
+                      </button>
+                    ))}
+                  </div>
                 </div>
+
+                {/* Markdown pane */}
                 <div className={`mdPane mode-${editorMode}`}>
                   {editorMode !== "preview" ? <MarkdownEditor value={postBodyDraft} onChange={setPostBodyDraft} /> : null}
                   {editorMode !== "edit" ? (
                     <MarkdownViewer content={postBodyDraft} flashHeading={flashHeading} flashCitation={flashCitation} />
                   ) : null}
                 </div>
+
+                {/* Revision & meta */}
                 <div className="revisionPanel">
                   <h3>Generation Context</h3>
                   {generatedPost?.generationMeta ? (
@@ -1044,10 +1234,44 @@ export default function HomePage() {
                 </div>
               </>
             ) : (
-              <p>생성된 글이 없습니다. Session에서 Generate Blog를 실행하거나 Posts에서 글을 선택하세요.</p>
+              <p>생성된 글이 없습니다. 아래 ⚙ 버튼을 눌러 Generate Blog를 실행하거나 Posts에서 글을 선택하세요.</p>
             )}
           </div>
         ) : null}
+
+        {/* ─── Posts Panel ─── */}
+        {activePanel === "posts" ? (
+          <div className="workspaceBody card">
+            <h3>Generated Posts</h3>
+            {posts.length === 0 ? (
+              <p>No posts yet.</p>
+            ) : (
+              <div className="tableLike">
+                {posts.map((post) => (
+                  <div
+                    key={post.id}
+                    className="postCard"
+                    onClick={() => {
+                      setSelectedPostId(post.id);
+                      setPanel("editor");
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span className="postCardTitle">{post.title}</span>
+                      <span className={`postCardBadge ${post.status}`}>{post.status}</span>
+                    </div>
+                    <span className="postCardMeta">
+                      {post.provider} · {new Date(post.updatedAt).toLocaleString()}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : null}
+
+        {/* ─── Floating Generation Panel ─── */}
+        {renderGenPanel()}
       </section>
     </main>
   );
