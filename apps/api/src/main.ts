@@ -7,7 +7,7 @@ import { SessionsService } from "./sessions/sessions.service";
 import type { UpdatePostPayload } from "./sessions/sessions.service";
 import { SourcesService } from "./sources/sources.service";
 
-type RouteHandler = (req: Request, res: Response) => Promise<void>;
+type RouteHandler = (req: Request<Record<string, string>>, res: Response) => Promise<void>;
 
 function getMessage(error: unknown): string {
   if (error instanceof Error) {
@@ -45,7 +45,7 @@ async function bootstrap(): Promise<void> {
     delete: (path: string, handler: RouteHandler) => void;
   };
 
-  const route = (handler: (req: Request) => Promise<unknown>): RouteHandler => {
+  const route = (handler: (req: Request<Record<string, string>>) => Promise<unknown>): RouteHandler => {
     return async (req, res) => {
       try {
         const result = await handler(req);
@@ -150,7 +150,7 @@ async function bootstrap(): Promise<void> {
     })
   );
 
-  httpServer.get("/sessions/:sessionId/generate/stream", async (req: Request, res: Response) => {
+  httpServer.get("/sessions/:sessionId/generate/stream", async (req: Request<Record<string, string>>, res: Response) => {
     const sessionId = req.params.sessionId;
     const providerParam = typeof req.query.provider === "string" ? req.query.provider : "mock";
     const tone = typeof req.query.tone === "string" ? req.query.tone : undefined;
@@ -224,7 +224,8 @@ async function bootstrap(): Promise<void> {
     })
   );
 
-  await app.listen(4000);
+  const port = Number.parseInt(process.env.PORT ?? "4000", 10);
+  await app.listen(port);
 }
 
 void bootstrap();

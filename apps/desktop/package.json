@@ -1,0 +1,72 @@
+{
+  "name": "@velogen/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "main": "main.cjs",
+  "scripts": {
+    "dev": "electron .",
+    "dist": "USE_SYSTEM_7ZA=true electron-builder"
+  },
+  "devDependencies": {
+    "@electron/rebuild": "4.0.3",
+    "7zip-bin": "5.2.0",
+    "cross-env": "^10.1.0",
+    "electron": "40.6.0",
+    "electron-builder": "26.8.1"
+  },
+  "build": {
+    "appId": "com.velogen.desktop",
+    "productName": "Velogen",
+    "directories": {
+      "output": "dist"
+    },
+    "afterPack": "scripts/afterPack.js",
+    "files": [
+      "main.cjs",
+      "preload.cjs"
+    ],
+    "extraResources": [
+      {
+        "from": "../api/dist",
+        "to": "api"
+      },
+      {
+        "from": "../web/out",
+        "to": "web"
+      },
+      {
+        "from": "../../node_modules",
+        "to": "node_modules",
+        "filter": [
+          "**/*",
+          "!@velogen"
+        ]
+      },
+      {
+        "from": "../../packages/shared",
+        "to": "node_modules/@velogen/shared"
+      },
+      {
+        "from": "../api/node_modules",
+        "to": "api/apps/api/node_modules",
+        "filter": [
+          "**/*",
+          "!@velogen"
+        ]
+      }
+    ],
+    "asarUnpack": [
+      "**/*.node"
+    ],
+    "mac": {
+      "target": [
+        "dmg"
+      ]
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    }
+  }
+}

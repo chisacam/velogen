@@ -8,7 +8,10 @@ export class DatabaseService implements OnModuleInit {
   private db!: Database.Database;
 
   onModuleInit(): void {
-    const dbPath = resolve(process.cwd(), "data", "velogen.sqlite");
+    const configuredPath = process.env.DB_PATH;
+    const dbPath = configuredPath && configuredPath.trim().length > 0
+      ? resolve(configuredPath)
+      : resolve(process.cwd(), "data", "velogen.sqlite");
     mkdirSync(dirname(dbPath), { recursive: true });
     this.db = new Database(dbPath);
     this.db.pragma("journal_mode = WAL");

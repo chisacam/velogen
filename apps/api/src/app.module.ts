@@ -19,4 +19,4 @@ import { AgentRunnerService } from "./generation/agent-runner.service";
     AgentRunnerService
   ]
 })
-export class AppModule {}
+export class AppModule { }
