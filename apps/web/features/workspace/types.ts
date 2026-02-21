@@ -1,5 +1,9 @@
 import type { AgentProvider, GenerationMeta, SourceType } from "@velogen/shared";
 
+type EditorMode = "edit" | "preview" | "split";
+
+type GenerationMode = "new" | "refine";
+
 interface SessionSummary {
   id: string;
   title: string;
@@ -51,6 +55,12 @@ interface PostRevisionDetail extends PostRevision {
 type WorkspacePanel = "session" | "sources" | "editor" | "posts";
 type ToastKind = "info" | "success" | "error";
 
+interface WorkspaceNavItem {
+  key: WorkspacePanel;
+  icon: string;
+  label: string;
+}
+
 interface ToastMessage {
   id: string;
   message: string;
@@ -58,12 +68,15 @@ interface ToastMessage {
 }
 
 export type {
+  EditorMode,
+  GenerationMode,
   GeneratedPost,
   PostRevision,
   PostRevisionDetail,
   PostSummary,
   SessionSource,
   SessionSummary,
+  WorkspaceNavItem,
   ToastKind,
   ToastMessage,
   WorkspacePanel
