@@ -5,7 +5,7 @@
   "main": "main.cjs",
   "scripts": {
     "dev": "electron .",
-    "dist": "USE_SYSTEM_7ZA=true electron-builder"
+    "dist": "cross-env USE_SYSTEM_7ZA=true electron-builder"
   },
   "devDependencies": {
     "@electron/rebuild": "4.0.3",

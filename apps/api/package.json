@@ -17,6 +17,7 @@
     "@notionhq/client": "5.9.0",
     "@velogen/shared": "0.1.0",
     "better-sqlite3": "12.6.2",
+    "cross-spawn": "^6.0.6",
     "reflect-metadata": "0.2.2",
     "rxjs": "7.8.2",
     "uuid": "^13.0.0"
@@ -26,6 +27,7 @@
     "@nestjs/schematics": "^11.0.9",
     "@nestjs/testing": "^11.1.13",
     "@types/better-sqlite3": "^7.6.13",
+    "@types/cross-spawn": "^6.0.6",
     "@types/express": "^5.0.6",
     "@types/jest": "^30.0.0",
     "@types/node": "^24.10.13",
