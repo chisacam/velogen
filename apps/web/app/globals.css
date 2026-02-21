@@ -612,6 +612,71 @@ button.secondary:hover:not(:disabled) {
   grid-area: 1 / 1;
 }
 
+.clarificationCard {
+  border: 1px solid #f5b34a40;
+  background: linear-gradient(135deg, #fff8e6 0%, #fff1d4 100%);
+  padding: 12px;
+  border-radius: var(--radius-md);
+  display: grid;
+  gap: 8px;
+}
+
+.clarificationHeader {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #8f4e00;
+}
+
+.clarificationMessage {
+  margin: 0;
+  color: #5e4a1e;
+  font-size: 0.86rem;
+  line-height: 1.4;
+}
+
+.clarificationSubHeader {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #6e4f11;
+}
+
+.clarificationQuestionList {
+  display: grid;
+  gap: 8px;
+}
+
+.clarificationQuestionList .clarificationFieldWrap {
+  gap: 5px;
+}
+
+.clarificationFieldWrap {
+  display: grid;
+  gap: 6px;
+}
+
+.clarificationTextarea {
+  min-height: 60px;
+  resize: vertical;
+}
+
+.clarificationRationale {
+  font-size: 0.75rem;
+  color: #7a6230;
+  line-height: 1.35;
+}
+
+.clarificationLabel {
+  font-size: 0.78rem;
+  color: #6b4c13;
+  font-weight: 700;
+}
+
+.clarificationActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
 /* State: closed — pill visible, panel hidden */
 .genPanelFloating.closed .genPanelCollapsed {
   opacity: 1;

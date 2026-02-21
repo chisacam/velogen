@@ -5,10 +5,25 @@
     "outDir": "dist",
     "baseUrl": "./",
     "paths": {
-      "@velogen/shared": ["../../packages/shared/src"]
+      "@velogen/shared": [
+        "../../packages/shared/src"
+      ]
     },
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true
   },
-  "include": ["src/**/*", "test/**/*"]
+  "include": [
+    "src/**/*.ts",
+    "test/**/*.ts"
+  ],
+  "watchOptions": {
+    "watchFile": "fixedPollingInterval",
+    "watchDirectory": "useFsEvents",
+    "fallbackPolling": "dynamicPriority",
+    "synchronousWatchDirectory": true,
+    "excludeDirectories": [
+      "**/node_modules",
+      "dist"
+    ]
+  }
 }

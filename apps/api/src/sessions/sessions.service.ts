@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
-import type { AgentProvider, CreateSessionDto, UpdateSessionConfigDto } from "@velogen/shared";
+import type { AgentProvider, CreateSessionDto, GenerationClarificationContext, UpdateSessionConfigDto } from "@velogen/shared";
 import { DatabaseService } from "../database/database.service";
 import { GenerationService } from "../generation/generation.service";
 import { ContentIngestionService } from "../sync/content-ingestion.service";
@@ -102,7 +102,9 @@ export class SessionsService {
     format?: string,
     userInstruction?: string,
     refinePostId?: string,
-    generateImage?: boolean
+    generateImage?: boolean,
+    skipPreflight?: boolean,
+    clarificationContext?: GenerationClarificationContext
   ) {
     this.assertSessionExists(sessionId);
     const sourceCountRow = this.databaseService.connection
@@ -120,9 +122,18 @@ export class SessionsService {
       refinePostBody = postRow?.body;
     }
 
-    return this.generationService.generateFromSession(
-      sessionId, provider, tone, format, userInstruction, refinePostBody, refinePostId, generateImage
-    );
+      return this.generationService.generateFromSession(
+        sessionId,
+        provider,
+        tone,
+        format,
+        userInstruction,
+        refinePostBody,
+        refinePostId,
+        generateImage,
+        skipPreflight,
+        clarificationContext
+      );
   }
 
   async generateStream(
@@ -133,7 +144,9 @@ export class SessionsService {
     onChunk: (chunk: string) => void,
     userInstruction?: string,
     refinePostId?: string,
-    generateImage?: boolean
+    generateImage?: boolean,
+    skipPreflight?: boolean,
+    clarificationContext?: GenerationClarificationContext
   ) {
     this.assertSessionExists(sessionId);
     const sourceCountRow = this.databaseService.connection
@@ -151,9 +164,19 @@ export class SessionsService {
       refinePostBody = postRow?.body;
     }
 
-    return this.generationService.generateFromSessionStream(
-      sessionId, provider, tone, format, onChunk, userInstruction, refinePostBody, refinePostId, generateImage
-    );
+      return this.generationService.generateFromSessionStream(
+        sessionId,
+        provider,
+        tone,
+        format,
+      onChunk,
+      userInstruction,
+        refinePostBody,
+        refinePostId,
+        generateImage,
+        skipPreflight,
+        clarificationContext
+      );
   }
 
   async syncSource(sessionId: string, sourceId: string): Promise<{ ingested: number }> {

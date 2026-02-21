@@ -121,6 +121,15 @@ export default function HomePage() {
           generatedPost={controller.generatedPost}
           selectedPostId={controller.selectedPostId}
           postBodyDraft={controller.postBodyDraft}
+          clarification={controller.clarification}
+          clarificationAnswers={controller.clarificationAnswers}
+          onClarificationAnswerChange={controller.onClarificationAnswerChange}
+          tone={controller.tone}
+          setTone={controller.setTone}
+          format={controller.format}
+          setFormat={controller.setFormat}
+          onRetryAfterClarification={controller.onRetryAfterClarification}
+          onClearClarification={controller.onClearClarification}
         />
       </section>
     </main>
