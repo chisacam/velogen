@@ -1,130 +1,23 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { AgentProvider, GenerationMeta, SourceSummary, SourceType } from "@velogen/shared";
+import type { AgentProvider, SourceSummary } from "@velogen/shared";
 import { MarkdownEditor } from "../components/markdown-editor";
 import { MarkdownViewer } from "../components/markdown-viewer";
-
-interface SessionSummary {
-  id: string;
-  title: string;
-  tone: string | null;
-  format: string | null;
-  provider: AgentProvider;
-  updatedAt: string;
-}
-
-interface SessionSource {
-  sourceId: string;
-  name: string;
-  type: SourceType;
-}
-
-interface PostSummary {
-  id: string;
-  title: string;
-  provider: string;
-  status: "draft" | "published";
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface GeneratedPost {
-  id: string;
-  title: string;
-  body: string;
-  status: "draft" | "published";
-  provider: string;
-  createdAt: string;
-  updatedAt: string;
-  generationMeta?: GenerationMeta;
-}
-
-interface PostRevision {
-  id: string;
-  version: number;
-  title: string;
-  status: "draft" | "published";
-  source: "generated" | "manual-edit";
-  createdAt: string;
-}
-
-interface PostRevisionDetail extends PostRevision {
-  body: string;
-}
-
-type WorkspacePanel = "session" | "sources" | "editor" | "posts";
-
-type ToastKind = "info" | "success" | "error";
-
-interface ToastMessage {
-  id: string;
-  message: string;
-  kind: ToastKind;
-}
-
-const PERIOD_OPTIONS = [
-  { label: "1개월", value: "1" },
-  { label: "3개월", value: "3" },
-  { label: "6개월", value: "6" },
-  { label: "1년", value: "12" },
-] as const;
-
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
-
-async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE}${path}`, {
-    ...init,
-    headers: {
-      "content-type": "application/json",
-      ...(init?.headers ?? {})
-    },
-    cache: "no-store"
-  });
-
-  if (!response.ok) {
-    let message = `Request failed: ${response.status}`;
-    try {
-      const errorData = (await response.json()) as { message?: string };
-      if (errorData.message) message = errorData.message;
-    } catch {
-      try {
-        const text = await response.text();
-        if (text) message = text;
-      } catch {
-        // ignore
-      }
-    }
-    throw new Error(message);
-  }
-
-  if (response.status === 204) {
-    return undefined as T;
-  }
-
-  return (await response.json()) as T;
-}
-
-function formatSourceDisplayValue(source: SourceSummary): string {
-  if (!source.config) return source.id;
-
-  if (source.type === "repo") {
-    const rConfig = source.config as import("@velogen/shared").RepoSourceConfig;
-    if (rConfig.repoUrl && rConfig.repoUrl.length > 0) return rConfig.repoUrl;
-    if (rConfig.repoPath && rConfig.repoPath.length > 0) return rConfig.repoPath;
-  } else if (source.type === "notion") {
-    const nConfig = source.config as import("@velogen/shared").NotionSourceConfig;
-    if (nConfig.pageId && nConfig.pageId.length > 0) return nConfig.pageId;
-  }
-
-  return source.id;
-}
-
-/** 마크다운의 첫 번째 H1 제목을 추출합니다. */
-function extractTitleFromMarkdown(markdown: string): string | null {
-  const match = markdown.match(/^#\s+(.+)$/m);
-  return match ? match[1].trim() : null;
-}
+import { apiRequest, API_BASE } from "../lib/api-client";
+import { PERIOD_OPTIONS } from "../features/workspace/constants";
+import type {
+  GeneratedPost,
+  PostRevision,
+  PostRevisionDetail,
+  PostSummary,
+  SessionSource,
+  SessionSummary,
+  ToastKind,
+  ToastMessage,
+  WorkspacePanel
+} from "../features/workspace/types";
+import { buildMarkdownFileName, extractTitleFromMarkdown, formatSourceDisplayValue } from "../features/workspace/utils";
 
 export default function HomePage() {
   const [sources, setSources] = useState<SourceSummary[]>([]);
@@ -720,7 +613,7 @@ export default function HomePage() {
       return;
     }
     const title = postTitleDraft || "untitled";
-    const fileName = `${title.replace(/[^a-zA-Z0-9가-힣\s-_]/g, "").replace(/\s+/g, "-").toLowerCase()}.md`;
+    const fileName = buildMarkdownFileName(title);
     const blob = new Blob([postBodyDraft], { type: "text/markdown;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
