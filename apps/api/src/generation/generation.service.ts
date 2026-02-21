@@ -527,7 +527,7 @@ export class GenerationService {
     clarificationContext?: GenerationClarificationContext
   ): string {
     const normalizedItems = this.toPromptItems(items);
-    const timeline = this.buildTimelineSection(normalizedItems);
+    const keyEvents = this.buildKeyEventsSection(normalizedItems);
     const themeGroups = this.buildThemeSection(normalizedItems);
     const evidence = this.buildEvidenceSection(normalizedItems);
 
@@ -560,8 +560,8 @@ export class GenerationService {
       ...(instructionBlock ? [instructionBlock] : []),
       ...(clarificationBlock ? [clarificationBlock] : []),
       ...basePrompt,
-      "[TIMELINE INPUT]",
-      timeline,
+      "[KEY EVENTS INPUT]",
+      keyEvents,
       "[THEME INPUT]",
       themeGroups,
       "[EVIDENCE INPUT]",
@@ -628,7 +628,7 @@ export class GenerationService {
     });
   }
 
-  private buildTimelineSection(items: PromptItem[]): string {
+  private buildKeyEventsSection(items: PromptItem[]): string {
     return items
       .map(
         (item) =>

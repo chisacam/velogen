@@ -43,7 +43,7 @@ compact 모드일 때는 6의 자리에 `[COMPACT EVIDENCE INPUT]`을 사용한�
 - commit/notion 원문을 복붙하지 말고 의미를 통합 요약합니다.
 - 출력 형식은 아래 순서와 내용을 따르고, 반드시 Markdown 문법을 따라야 합니다.
 - 1) Executive Summary
-- 2) Key Points Review
+- 2) Key Events Review
 - 3) Thematic Insights
 - 4) Decisions & Trade-offs
 - 5) Conclusion
