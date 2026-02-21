@@ -6,10 +6,17 @@ import type { AgentRunnerService } from "./agent-runner.service";
 
 class RunnerStub {
   lastPrompt = "";
+  prompts: string[] = [];
+  private readonly queuedOutputs: string[] = [];
+
+  enqueueOutput(output: string): void {
+    this.queuedOutputs.push(output);
+  }
 
   async run(prompt: string): Promise<string> {
     this.lastPrompt = prompt;
-    return "# generated";
+    this.prompts.push(prompt);
+    return this.queuedOutputs.shift() ?? "# generated";
   }
 }
 
@@ -176,7 +183,7 @@ describe("GenerationService retrospective prompt", () => {
 
     await service.generateFromSession("s1", "claude", "회고형", "마크다운");
 
-    expect(runner.lastPrompt).toContain("[TIMELINE INPUT]");
+    expect(runner.lastPrompt).toContain("[KEY EVENTS INPUT]");
     expect(runner.lastPrompt).toContain("[THEME INPUT]");
     expect(runner.lastPrompt).toContain("[EVIDENCE INPUT]");
     expect(runner.lastPrompt).toContain("C1");
@@ -292,7 +299,7 @@ describe("GenerationService retrospective prompt", () => {
     }
   });
 
-  it("returns clarification when tone and format are missing", async () => {
+  it("returns agent-led clarification when tone and format are missing", async () => {
     const db = createDb();
     const runner = new RunnerStub();
     const ingestion = {
@@ -317,7 +324,10 @@ describe("GenerationService retrospective prompt", () => {
     const result = await service.generateFromSession("s3", "mock");
 
     expect((result as { requiresClarification: boolean }).requiresClarification).toBe(true);
-    expect((result as { missing: Array<{ field: string }> }).missing).toHaveLength(2);
+    expect((result as { clarifyingQuestions?: Array<{ id: string }> }).clarifyingQuestions).toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: "agent-q-1-1" })])
+    );
+    expect((result as { missing: Array<{ field: string }> }).missing).toHaveLength(0);
     expect((result as { defaults: { tone: string; format: string } }).defaults.tone).toBe("기본 톤");
     expect((result as { defaults: { tone: string; format: string } }).defaults.format).toBe("기본 기술 블로그 형식");
   });
@@ -438,9 +448,79 @@ describe("GenerationService retrospective prompt", () => {
 
     expect((result as { requiresClarification: boolean }).requiresClarification).toBe(true);
     expect((result as { clarifyingQuestions?: Array<{ id: string }> }).clarifyingQuestions).toEqual(
-      expect.arrayContaining([expect.objectContaining({ id: "insufficient-items" })])
+      expect.arrayContaining([expect.objectContaining({ id: "agent-q-1-1" })])
     );
     expect((result as { missing: Array<{ field: string }> }).missing).toHaveLength(0);
+  });
+
+  it("uses provider response to ask conversational clarification questions", async () => {
+    const db = createDb();
+    const runner = new RunnerStub();
+    runner.enqueueOutput(JSON.stringify({
+      requiresClarification: true,
+      message: "초안을 만들기 전에 방향을 조금만 더 정하고 싶습니다.",
+      questions: [
+        {
+          question: "이번 글에서 독자가 가장 먼저 이해해야 하는 한 가지를 알려주세요.",
+          rationale: "핵심 메시지를 먼저 고정하면 글 구조가 안정됩니다."
+        }
+      ]
+    }));
+    const ingestion = {
+      ingestSource: async () => 0
+    };
+    const service = new GenerationService(
+      { connection: db } as unknown as DatabaseService,
+      ingestion as unknown as ContentIngestionService,
+      runner as unknown as AgentRunnerService
+    );
+
+    const now = new Date().toISOString();
+    db.prepare("INSERT INTO sessions (id, title, tone, format, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)").run(
+      "s8",
+      "Agent Clarification",
+      "회고형",
+      "기술 블로그",
+      now,
+      now
+    );
+    db.prepare("INSERT INTO sources (id, name, type, config_json, active, created_at, updated_at) VALUES (?, ?, ?, ?, 1, ?, ?)").run(
+      "repo8",
+      "velogen-repo",
+      "repo",
+      JSON.stringify({ repoUrl: "https://github.com/acme/velogen" }),
+      now,
+      now
+    );
+    db.prepare("INSERT INTO session_sources (session_id, source_id, created_at) VALUES (?, ?, ?)").run("s8", "repo8", now);
+    db.prepare(
+      "INSERT INTO content_items (id, source_id, external_id, kind, title, body, author, occurred_at, metadata_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    ).run(
+      "c8a",
+      "repo8",
+      "aaa100",
+      "commit",
+      "feat: add workspace timeline",
+      "Implemented timeline summary for generated drafts.",
+      "Alice",
+      "2026-01-01T08:00:00.000Z",
+      JSON.stringify({ hash: "aaa100", repoUrl: "https://github.com/acme/velogen" }),
+      now
+    );
+
+    const result = await service.generateFromSession("s8", "claude", "회고형", "마크다운");
+
+    expect((result as { requiresClarification: boolean }).requiresClarification).toBe(true);
+    expect((result as { message: string }).message).toContain("방향");
+    expect((result as { clarifyingQuestions?: Array<{ id: string; question: string }> }).clarifyingQuestions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "agent-q-1-1",
+          question: "이번 글에서 독자가 가장 먼저 이해해야 하는 한 가지를 알려주세요."
+        })
+      ])
+    );
+    expect(runner.prompts[0]).toContain("[ALREADY ANSWERED]");
   });
 
   it("filters already answered clarification questions and proceeds with generation", async () => {

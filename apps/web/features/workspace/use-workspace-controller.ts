@@ -12,6 +12,7 @@ import { API_BASE, apiRequest } from "../../lib/api-client";
 import { PERIOD_OPTIONS } from "./constants";
 import type {
   EditorMode,
+  GenerationConversationTurn,
   GenerationMode,
   GeneratedPost,
   PostRevision,
@@ -55,6 +56,7 @@ export function useWorkspaceController() {
   const [postStatusDraft, setPostStatusDraft] = useState<"draft" | "published">("draft");
   const [clarification, setClarification] = useState<GenerationClarificationResponse | null>(null);
   const [clarificationAnswers, setClarificationAnswers] = useState<GenerationClarificationAnswer[]>([]);
+  const [clarificationConversation, setClarificationConversation] = useState<GenerationConversationTurn[]>([]);
   const [revisions, setRevisions] = useState<PostRevision[]>([]);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [sessionTitle, setSessionTitle] = useState("Weekly Engineering Digest");
@@ -517,6 +519,15 @@ export function useWorkspaceController() {
 
       setClarification(response);
       setClarificationAnswers(normalizeClarificationAnswers(response.context?.answers ?? []));
+      setClarificationConversation((previous) => [
+        ...previous,
+        {
+          id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+          role: "agent",
+          message: response.message,
+          questions: response.clarifyingQuestions ?? []
+        }
+      ]);
       setStatus(response.message);
       pushToast(response.message, "info");
       setIsGenerating(false);
@@ -535,6 +546,7 @@ export function useWorkspaceController() {
   const clearClarification = useCallback(() => {
     setClarification(null);
     setClarificationAnswers([]);
+    setClarificationConversation([]);
   }, []);
 
   const onGenerate = useCallback(
@@ -559,6 +571,7 @@ export function useWorkspaceController() {
       if (!clarificationContext) {
         setClarification(null);
         setClarificationAnswers([]);
+        setClarificationConversation([]);
       }
       setSelectedPostId("");
       setPostStatusDraft("draft");
@@ -697,10 +710,26 @@ export function useWorkspaceController() {
 
   const retryAfterClarification = useCallback(
     async (clarificationDraftAnswers?: GenerationClarificationAnswer[]): Promise<void> => {
-      const context = buildRetryClarificationContext(clarificationDraftAnswers);
+      const submittedAnswers = normalizeClarificationAnswers(clarificationDraftAnswers ?? clarificationAnswers);
+      if (submittedAnswers.length > 0) {
+        const summary = submittedAnswers
+          .map((answer) => `${answer.question}\n${answer.answer}`)
+          .join("\n\n");
+        setClarificationConversation((previous) => [
+          ...previous,
+          {
+            id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+            role: "user",
+            message: summary,
+            answers: submittedAnswers
+          }
+        ]);
+      }
+
+      const context = buildRetryClarificationContext(submittedAnswers);
       await onGenerate(true, context);
     },
-    [buildRetryClarificationContext, onGenerate]
+    [buildRetryClarificationContext, clarificationAnswers, normalizeClarificationAnswers, onGenerate]
   );
 
   const onSavePost = useCallback(async (): Promise<void> => {
@@ -834,6 +863,7 @@ export function useWorkspaceController() {
     genPanelOpen,
     clarification,
     clarificationAnswers,
+    clarificationConversation,
     navItems,
     selectedSession,
     PERIOD_OPTIONS,

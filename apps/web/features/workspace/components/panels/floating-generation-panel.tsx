@@ -21,6 +21,7 @@ export function FloatingGenerationPanel({
   selectedPostId,
   postBodyDraft,
   clarification,
+  clarificationConversation,
   tone,
   setTone,
   format,
@@ -133,14 +134,33 @@ export function FloatingGenerationPanel({
         </div>
 
         <div className="genPanelBody">
-          {clarification ? (
+          {clarification || clarificationConversation.length > 0 ? (
             <div className="clarificationCard">
-              <div className="clarificationHeader">필수 입력값 확인</div>
-              <p className="clarificationMessage">{clarification.message}</p>
+              <div className="clarificationHeader">Agent Conversation</div>
 
-              {(clarification.clarifyingQuestions?.length ?? 0) > 0 ? (
+              {clarificationConversation.length > 0 ? (
+                <div className="clarificationTranscript" aria-live="polite">
+                  {clarificationConversation.map((turn) => {
+                    return (
+                      <div
+                        key={turn.id}
+                        className={turn.role === "agent" ? "clarificationTurn agent" : "clarificationTurn user"}
+                      >
+                        <span className="clarificationTurnRole">{turn.role === "agent" ? "Agent" : "You"}</span>
+                        <p className="clarificationTurnMessage">{turn.message}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : null}
+
+              {clarification && clarificationConversation.length === 0 ? (
+                <p className="clarificationMessage">{clarification.message}</p>
+              ) : null}
+
+              {clarification && (clarification.clarifyingQuestions?.length ?? 0) > 0 ? (
                 <div className="clarificationQuestionList">
-                  <div className="clarificationSubHeader">AI가 추가 보완 정보를 요청합니다</div>
+                  <div className="clarificationSubHeader">에이전트 질문에 답변해 주세요</div>
                   {clarification.clarifyingQuestions?.map((question) => {
                     return (
                       <label key={question.id} className="clarificationFieldWrap">
@@ -170,7 +190,7 @@ export function FloatingGenerationPanel({
                 </div>
               ) : null}
 
-              {clarification.missing.some((item) => item.field === "tone") ? (
+              {clarification && clarification.missing.some((item) => item.field === "tone") ? (
                 <label className="clarificationFieldWrap">
                   <span className="clarificationLabel">Tone / Style</span>
                   <input
@@ -188,7 +208,7 @@ export function FloatingGenerationPanel({
                 </label>
               ) : null}
 
-              {clarification.missing.some((item) => item.field === "format") ? (
+              {clarification && clarification.missing.some((item) => item.field === "format") ? (
                 <label className="clarificationFieldWrap">
                   <span className="clarificationLabel">Format</span>
                   <input
@@ -210,16 +230,18 @@ export function FloatingGenerationPanel({
                 <button type="button" className="secondary" onClick={() => {
                   onClearClarification();
                 }}>
-                  닫기
+                  대화 초기화
                 </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    void onRetryAfterClarification(buildRetryAnswers());
-                  }}
-                >
-                  입력값 보완 후 생성
-                </button>
+                {clarification ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void onRetryAfterClarification(buildRetryAnswers());
+                    }}
+                  >
+                    답변 전송 후 계속 생성
+                  </button>
+                ) : null}
               </div>
             </div>
           ) : null}

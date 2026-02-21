@@ -123,6 +123,7 @@ export default function HomePage() {
           postBodyDraft={controller.postBodyDraft}
           clarification={controller.clarification}
           clarificationAnswers={controller.clarificationAnswers}
+          clarificationConversation={controller.clarificationConversation}
           onClarificationAnswerChange={controller.onClarificationAnswerChange}
           tone={controller.tone}
           setTone={controller.setTone}

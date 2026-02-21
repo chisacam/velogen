@@ -1,4 +1,10 @@
-import type { AgentProvider, GenerationMeta, SourceType } from "@velogen/shared";
+import type {
+  AgentProvider,
+  GenerationClarificationAnswer,
+  GenerationClarificationQuestion,
+  GenerationMeta,
+  SourceType
+} from "@velogen/shared";
 
 type EditorMode = "edit" | "preview" | "split";
 
@@ -67,8 +73,17 @@ interface ToastMessage {
   kind: ToastKind;
 }
 
+interface GenerationConversationTurn {
+  id: string;
+  role: "agent" | "user";
+  message: string;
+  questions?: GenerationClarificationQuestion[];
+  answers?: GenerationClarificationAnswer[];
+}
+
 export type {
   EditorMode,
+  GenerationConversationTurn,
   GenerationMode,
   GeneratedPost,
   PostRevision,

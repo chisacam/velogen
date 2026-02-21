@@ -634,6 +634,52 @@ button.secondary:hover:not(:disabled) {
   line-height: 1.4;
 }
 
+.clarificationTranscript {
+  display: grid;
+  gap: 8px;
+  max-height: 240px;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.clarificationTurn {
+  display: grid;
+  gap: 4px;
+  border: 1px solid #d7b47760;
+  background: #fff7e9;
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+
+.clarificationTurn.user {
+  border-color: #8da69e70;
+  background: #edf8f4;
+}
+
+.clarificationTurnRole {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #7b5a1f;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.clarificationTurn.user .clarificationTurnRole {
+  color: #2f6156;
+}
+
+.clarificationTurnMessage {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: #45351a;
+  white-space: pre-wrap;
+}
+
+.clarificationTurn.user .clarificationTurnMessage {
+  color: #1f4037;
+}
+
 .clarificationSubHeader {
   font-size: 0.78rem;
   font-weight: 700;

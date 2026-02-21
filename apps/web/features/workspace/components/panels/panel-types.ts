@@ -1,7 +1,19 @@
 import type { AgentProvider, GenerationClarificationAnswer, GenerationClarificationResponse, SourceSummary } from "@velogen/shared";
 import type { FormEvent } from "react";
 
-import type { EditorMode, GenerationMode, GeneratedPost, PostRevision, PostSummary, SessionSource, SessionSummary, ToastMessage, WorkspacePanel, WorkspaceNavItem } from "../../types";
+import type {
+  EditorMode,
+  GenerationConversationTurn,
+  GenerationMode,
+  GeneratedPost,
+  PostRevision,
+  PostSummary,
+  SessionSource,
+  SessionSummary,
+  ToastMessage,
+  WorkspacePanel,
+  WorkspaceNavItem
+} from "../../types";
 
 type PeriodOption = {
   label: string;
@@ -115,6 +127,7 @@ export type GenerationPanelProps = {
   postBodyDraft: string;
   clarification: GenerationClarificationResponse | null;
   clarificationAnswers: GenerationClarificationAnswer[];
+  clarificationConversation: GenerationConversationTurn[];
   onClarificationAnswerChange: (questionId: string, question: string, answer: string) => void;
   tone: string;
   setTone: (tone: string) => void;
