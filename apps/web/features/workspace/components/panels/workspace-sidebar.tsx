@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { type WorkspaceSidebarProps } from "./panel-types";
 
 export function WorkspaceSidebar({
@@ -10,15 +11,15 @@ export function WorkspaceSidebar({
   revisions,
   onLoadRevision,
   selectedSession,
-  statusText,
   setPanel
 }: WorkspaceSidebarProps) {
+  const [isInstructionOpen, setIsInstructionOpen] = useState(false);
+
   return (
     <aside className="sideNav card">
       <div className="brandBlock">
         <p className="eyebrow">velogen</p>
         <h1>Blog Studio</h1>
-        <p className="status">{statusText ?? selectedSession?.title ?? "No session selected"}</p>
       </div>
 
       <nav className="menuList">
@@ -77,6 +78,22 @@ export function WorkspaceSidebar({
               <p><span>Format</span><span>{generatedPost.generationMeta.format ?? "(none)"}</span></p>
               <p><span>Refine</span><span>{generatedPost.generationMeta.refinePostId ?? "new draft"}</span></p>
               <p><span>Sources</span><span>{generatedPost.generationMeta.sources.length}</span></p>
+              {generatedPost.generationMeta?.userInstruction && generatedPost.generationMeta.userInstruction.trim() !== "" ? (
+                <div className="sideInstructionWrap">
+                  <button
+                    type="button"
+                    className="sideInstructionToggle"
+                    onClick={() => setIsInstructionOpen((prev) => !prev)}
+                  >
+                    {isInstructionOpen ? "Hide Instruction" : "View Instruction"}
+                  </button>
+                  {isInstructionOpen && (
+                    <div className="sideInstructionContent">
+                      {generatedPost.generationMeta.userInstruction}
+                    </div>
+                  )}
+                </div>
+              ) : null}
             </div>
           ) : (
             <p className="sideMetaMuted">No saved generation context</p>
@@ -89,15 +106,18 @@ export function WorkspaceSidebar({
             <ul className="sideRevisionList">
               {revisions.map((revision) => (
                 <li key={revision.id}>
-                  <div>
+                  <div className="revHeader">
                     <span>v{revision.version}</span>
-                    <span>{revision.source}</span>
-                    <small>{new Date(revision.createdAt).toLocaleString()}</small>
                     <button type="button" className="tinyButton secondary" onClick={() => void onLoadRevision(revision.id)}>
                       Load
                     </button>
                   </div>
-
+                  <div className="revMeta">
+                    <span>{revision.source}</span>
+                    <small>
+                      {new Date(revision.createdAt).toLocaleDateString()} {new Date(revision.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </small>
+                  </div>
                 </li>
               ))}
             </ul>

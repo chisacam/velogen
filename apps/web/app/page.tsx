@@ -27,7 +27,6 @@ export default function HomePage() {
         revisions={controller.revisions}
         onLoadRevision={controller.onLoadRevision}
         selectedSession={controller.selectedSession}
-        statusText={controller.status}
         setPanel={controller.setPanel}
       />
 

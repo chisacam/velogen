@@ -30,7 +30,6 @@ export type WorkspaceSidebarProps = {
   revisions: PostRevision[];
   onLoadRevision: (revisionId: string) => Promise<void>;
   selectedSession: SessionSummary | null;
-  statusText?: string;
   setPanel: (panel: WorkspacePanel) => void;
 };
 
