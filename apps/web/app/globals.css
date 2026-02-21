@@ -15,15 +15,16 @@
   --focus-ring: 0 0 0 3px #007a7428;
   --duration-fast: 0.18s;
   --duration-mid: 0.28s;
-  --bg-0: #f7f9f3;
-  --bg-1: #d9e8f6;
-  --bg-2: #f0dbc5;
-  --ink: #172327;
-  --muted: #4f5f63;
-  --card: #ffffffcc;
-  --stroke: #18353f22;
-  --accent: #007a74;
-  --accent-2: #005f7a;
+  --shadow-sm: 0 2px 6px #08222b16;
+  --bg-0: #f4f7f4;
+  --bg-1: #e2eceb;
+  --bg-2: #e8e3d9;
+  --ink: #0f171a;
+  --muted: #52666b;
+  --card: rgba(255, 255, 255, 0.85);
+  --stroke: rgba(15, 23, 26, 0.08);
+  --accent: #006d65;
+  --accent-2: #004d66;
 }
 
 * {
@@ -36,10 +37,17 @@ body {
   font-family: var(--font-sans);
   line-height: 1.45;
   color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   background:
     radial-gradient(1200px 500px at 15% 10%, #fff7d9 0%, transparent 55%),
     radial-gradient(900px 500px at 90% 5%, #d8fff2 0%, transparent 45%),
     linear-gradient(145deg, var(--bg-0), var(--bg-1) 48%, var(--bg-2));
+}
+
+*:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
 
 .appShell {
@@ -86,6 +94,10 @@ body {
   background: #ffffffd4;
   color: var(--ink);
   transition: background-color var(--duration-fast), color var(--duration-fast), border-color var(--duration-fast);
+}
+
+.menuItem:hover:not(:disabled) {
+  background: #ffffffed;
 }
 
 .menuIcon {
@@ -199,6 +211,7 @@ body {
   box-shadow: var(--shadow-card);
   padding: var(--space-5);
   backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   animation: rise 0.45s ease-out;
 }
 
@@ -275,6 +288,10 @@ button {
   font-weight: 700;
   cursor: pointer;
   transition: transform var(--duration-fast) ease, box-shadow var(--duration-fast) ease, opacity var(--duration-fast) ease, background-color var(--duration-fast) ease;
+}
+
+button:active:not(:disabled) {
+  transform: scale(0.98);
 }
 
 button:focus-visible {
@@ -578,6 +595,7 @@ button.secondary:hover:not(:disabled) {
   border-radius: var(--radius-xl);
   box-shadow: 0 16px 48px #0a2c3830;
   backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   overflow: hidden;
   transition: opacity 0.3s cubic-bezier(0.22, 1, 0.36, 1), transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
   /* The button is 52px wide and 52px high, placed at bottom-right. 
@@ -691,6 +709,10 @@ button.secondary:hover:not(:disabled) {
   align-items: center;
   gap: var(--space-3);
   flex-wrap: wrap;
+}
+
+.autoImageToggle {
+  flex: 1;
 }
 
 .instructionLabel {

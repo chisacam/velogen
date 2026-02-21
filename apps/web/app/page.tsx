@@ -659,6 +659,7 @@ export default function HomePage() {
             key={opt.value}
             type="button"
             className={`periodSliderOption ${value === opt.value ? "active" : ""}`}
+            aria-pressed={value === opt.value}
             onClick={() => onChange(opt.value)}
           >
             {opt.label}
@@ -690,6 +691,7 @@ export default function HomePage() {
         <button
           type="button"
           className={`genPanelCollapsed ${isGenerating || isGeneratingImages ? "generating" : ""}`}
+          aria-label="Open generation panel"
           onClick={() => setGenPanelOpen(true)}
           title="Open generation panel"
         >
@@ -700,65 +702,76 @@ export default function HomePage() {
         <div className="genPanelExpanded">
           <div className="genPanelHeader">
             <span className="genPanelTitle">⚙ Generation Settings</span>
-            <button type="button" className="genPanelClose" onClick={() => setGenPanelOpen(false)}>×</button>
+            <button
+              type="button"
+              className="genPanelClose"
+              aria-label="Close generation panel"
+              onClick={() => setGenPanelOpen(false)}
+            >
+              ×
+            </button>
           </div>
 
-          <div className="genPanelBody">
-            <div className="genPanelRow">
-              <div className="instructionModeRow">
-                <span className="instructionLabel">Mode</span>
-                <div className="modeToggleGroup">
+            <div className="genPanelBody">
+              <div className="genPanelRow">
+                <div className="instructionModeRow">
+                  <span className="instructionLabel">Mode</span>
+                  <div className="modeToggleGroup">
+                    <button
+                      id="mode-new"
+                      type="button"
+                      className={generateMode === "new" ? "modeToggle active" : "modeToggle"}
+                      aria-pressed={generateMode === "new"}
+                      onClick={() => setGenerateMode("new")}
+                    >
+                      ✦ New Draft
+                    </button>
+                    <button
+                      id="mode-refine"
+                      type="button"
+                      className={generateMode === "refine" ? "modeToggle active" : "modeToggle"}
+                      aria-pressed={generateMode === "refine"}
+                      onClick={() => setGenerateMode("refine")}
+                      disabled={!selectedPostId}
+                      title={!selectedPostId ? "먼저 글을 선택하거나 생성하세요" : "현재 에디터의 글을 수정합니다"}
+                    >
+                      ✎ Refine
+                    </button>
+                  </div>
+                </div>
+                <div className="instructionModeRow">
+                  <span className="instructionLabel">Status</span>
+                  <div className="modeToggleGroup">
+                    <button
+                      type="button"
+                      className={postStatusDraft === "draft" ? "modeToggle active" : "modeToggle"}
+                      aria-pressed={postStatusDraft === "draft"}
+                      onClick={() => setPostStatusDraft("draft")}
+                    >
+                      Draft
+                    </button>
+                    <button
+                      type="button"
+                      className={postStatusDraft === "published" ? "modeToggle active" : "modeToggle"}
+                      aria-pressed={postStatusDraft === "published"}
+                      onClick={() => setPostStatusDraft("published")}
+                    >
+                      Published
+                    </button>
+                  </div>
+                </div>
+                <div className="instructionModeRow">
                   <button
-                    id="mode-new"
                     type="button"
-                    className={generateMode === "new" ? "modeToggle active" : "modeToggle"}
-                    onClick={() => setGenerateMode("new")}
+                    className={autoGenerateImages ? "modeToggle autoImageToggle active" : "modeToggle autoImageToggle"}
+                    aria-pressed={autoGenerateImages}
+                    onClick={() => setAutoGenerateImages(!autoGenerateImages)}
+                    disabled={isGenerating || isGeneratingImages}
                   >
-                    ✦ New Draft
-                  </button>
-                  <button
-                    id="mode-refine"
-                    type="button"
-                    className={generateMode === "refine" ? "modeToggle active" : "modeToggle"}
-                    onClick={() => setGenerateMode("refine")}
-                    disabled={!selectedPostId}
-                    title={!selectedPostId ? "먼저 글을 선택하거나 생성하세요" : "현재 에디터의 글을 수정합니다"}
-                  >
-                    ✎ Refine
+                    Auto Images
                   </button>
                 </div>
               </div>
-              <div className="instructionModeRow">
-                <span className="instructionLabel">Status</span>
-                <div className="modeToggleGroup">
-                  <button
-                    type="button"
-                    className={postStatusDraft === "draft" ? "modeToggle active" : "modeToggle"}
-                    onClick={() => setPostStatusDraft("draft")}
-                  >
-                    Draft
-                  </button>
-                  <button
-                    type="button"
-                    className={postStatusDraft === "published" ? "modeToggle active" : "modeToggle"}
-                    onClick={() => setPostStatusDraft("published")}
-                  >
-                    Published
-                  </button>
-                </div>
-              </div>
-              <div className="instructionModeRow">
-                <button
-                  type="button"
-                  className={autoGenerateImages ? "modeToggle active" : "modeToggle"}
-                  onClick={() => setAutoGenerateImages(!autoGenerateImages)}
-                  disabled={isGenerating || isGeneratingImages}
-                  style={{ flex: 1, justifyContent: "center" }}
-                >
-                  Auto Images
-                </button>
-              </div>
-            </div>
             {generateMode === "refine" && selectedPostId && (
               <span className="refineBadge">수정 대상: {generatedPost?.title ?? selectedPostId}</span>
             )}
@@ -809,6 +822,7 @@ export default function HomePage() {
               key={item.key}
               type="button"
               className={activePanel === item.key ? "menuItem active" : "menuItem"}
+              aria-current={activePanel === item.key ? "page" : undefined}
               onClick={() => setPanel(item.key)}
             >
               <span className="menuIcon" aria-hidden="true">
@@ -1053,13 +1067,14 @@ export default function HomePage() {
                 {/* Editor toolbar */}
                 <div className="editorToolbar">
                   <div className="viewModeTabs">
-                    {(["split", "edit", "preview"] as const).map((mode) => (
-                      <button
-                        key={mode}
-                        type="button"
-                        className={`viewModeTab ${editorMode === mode ? "active" : ""}`}
-                        onClick={() => setEditorMode(mode)}
-                      >
+                  {(["split", "edit", "preview"] as const).map((mode) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      className={`viewModeTab ${editorMode === mode ? "active" : ""}`}
+                      aria-pressed={editorMode === mode}
+                      onClick={() => setEditorMode(mode)}
+                    >
                         {mode === "split" ? "Split" : mode === "edit" ? "Edit" : "Preview"}
                       </button>
                     ))}
