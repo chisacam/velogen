@@ -27,6 +27,26 @@ When handing off, include:
 - `risks`: regression/compatibility risks
 - `next_step`: actions required by the next agent
 
+### Handoff Sample (Production format)
+
+```text
+scope:
+- Goal: split the workspace into menu/source/session/post/generation modules to reduce `page.tsx` scope
+- Boundary: preserve app behavior, follow `AGENTS.md` guardrails
+
+assumptions:
+- Session and post APIs in `apps/web` and `apps/api` will continue to behave identically
+- Existing workspace flow (`Session/Sources/Posts/Editor`) should remain visible to users
+
+risks:
+- State coupling (`selectedSessionId`, `selectedPostId`) may shift during refactor ordering changes
+- Shared type refactors could introduce circular imports if module boundaries are not defined first
+
+next_step:
+- Writing handoff: component mapping + impacted files + type check results
+- Review handoff: summarize scope/risks/regression checks in `Scope/Checks/Findings`
+```
+
 ## 3. Input Analysis Agent
 
 ### Role

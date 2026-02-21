@@ -20,6 +20,12 @@ Next.js + NestJS + SQLite 기반으로, 커밋 히스토리와 Notion 콘텐츠�
 - Generation Context 저장: 생성 시점의 provider/tone/format/instruction/refinePostId/소스 스냅샷을 post에 함께 저장
 - 로컬 DB: SQLite(`better-sqlite3`) 사용
 
+## AI 에이전트 가이드
+
+- 에이전트 운영 규칙(한글): [`AGENTS.md`](./AGENTS.md)
+- Agent operating rules (English): [`AGENTS.en.md`](./AGENTS.en.md)
+- 리팩토링 진행 요약: [`docs/refactor-report.md`](./docs/refactor-report.md)
+
 ## 모노레포 구조
 
 - `apps/api`: NestJS API

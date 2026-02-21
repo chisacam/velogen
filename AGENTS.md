@@ -27,6 +27,26 @@
 - `risks`: 회귀·호환성 위험
 - `next_step`: 다음 에이전트에게 필요한 액션
 
+### Handoff 샘플 (실무용)
+
+```text
+scope:
+- 목표: workspace 모듈을 menu/source/session/post/generation 도메인으로 분해해 page.tsx 책임 축소
+- 경계: 앱 동작은 유지, `AGENTS.md` 기준 규칙은 준수
+
+assumptions:
+- 코드 변경 후 `apps/web`, `apps/api`의 핵심 엔드포인트 동작은 동일하게 유지될 것
+- UI 구조 변경은 기존 라벨/흐름(`Session/Sources/Posts/Editor`) 유지
+
+risks:
+- 모듈 분해 중 상태 의존성(`selectedSessionId`, `selectedPostId`)이 초기화되는 순서 변경 가능성
+- 새 파일 구조에서 공용 타입 위치 이동 시 순환 참조 유입 가능성
+
+next_step:
+- 작성 단계 산출물: 변경된 컴포넌트 매핑표 + 영향 파일 목록 + 타입 검증 결과
+- 리뷰 단계 산출물: 기능 범위/회귀 리스크/테스트 결과를 `Scope/Checks/Findings` 형식으로 정리
+```
+
 ## 3. Input Analysis Agent
 
 ### Role
