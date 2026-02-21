@@ -1,5 +1,20 @@
 :root {
   color-scheme: light;
+  --font-sans: "Manrope", "Pretendard", "Noto Sans KR", "Segoe UI", sans-serif;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --shadow-card: 0 8px 26px #0a2c3815;
+  --focus-ring: 0 0 0 3px #007a7428;
+  --duration-fast: 0.18s;
+  --duration-mid: 0.28s;
   --bg-0: #f7f9f3;
   --bg-1: #d9e8f6;
   --bg-2: #f0dbc5;
@@ -18,7 +33,8 @@
 body {
   margin: 0;
   min-height: 100vh;
-  font-family: "Avenir Next", "Noto Sans KR", "Segoe UI", sans-serif;
+  font-family: var(--font-sans);
+  line-height: 1.45;
   color: var(--ink);
   background:
     radial-gradient(1200px 500px at 15% 10%, #fff7d9 0%, transparent 55%),
@@ -27,12 +43,14 @@ body {
 }
 
 .appShell {
-  width: min(1440px, 98vw);
-  margin: 16px auto;
+  width: min(1440px, 100%);
+  margin: var(--space-4) auto;
+  padding: 0 var(--space-2);
   display: grid;
   grid-template-columns: 260px minmax(0, 1fr);
-  gap: 16px;
+  gap: var(--space-4);
   min-height: calc(100vh - 32px);
+  align-items: start;
 }
 
 /* ─── Side Nav ─── */
@@ -44,17 +62,18 @@ body {
   overflow: auto;
   display: grid;
   grid-template-rows: auto auto 1fr;
-  gap: 14px;
+  gap: var(--space-4);
 }
 
 .brandBlock h1 {
   margin: 6px 0;
-  font-size: 1.4rem;
+  font-size: 1.45rem;
+  line-height: 1.15;
 }
 
 .menuList {
   display: grid;
-  gap: 6px;
+  gap: var(--space-2);
 }
 
 .menuItem {
@@ -66,7 +85,7 @@ body {
   border: 1px solid #2f505924;
   background: #ffffffd4;
   color: var(--ink);
-  transition: all 0.2s ease;
+  transition: background-color var(--duration-fast), color var(--duration-fast), border-color var(--duration-fast);
 }
 
 .menuIcon {
@@ -96,7 +115,7 @@ body {
 
 .sideMeta {
   border-top: 1px solid #2f505924;
-  padding-top: 10px;
+  padding-top: var(--space-3);
   color: var(--muted);
 }
 
@@ -108,24 +127,25 @@ body {
 
 .workspace {
   display: grid;
-  gap: 12px;
+  gap: var(--space-3);
   align-content: start;
   position: relative;
 }
 
 .toastStack {
   position: fixed;
-  top: 16px;
-  right: 16px;
+  top: var(--space-4);
+  right: var(--space-4);
   z-index: 100;
   display: grid;
-  gap: 8px;
-  max-width: 360px;
+  gap: var(--space-2);
+  max-width: min(360px, calc(100vw - 32px));
+  width: min(100%, 360px);
 }
 
 .toastItem {
   padding: 10px 14px;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   border: 1px solid #2f505924;
   background: #ffffffea;
   box-shadow: 0 8px 16px #16323a1a;
@@ -151,7 +171,7 @@ body {
 .workspaceHeader {
   display: flex;
   align-items: center;
-  min-height: 48px;
+  min-height: 52px;
 }
 
 .workspaceHeaderTitle {
@@ -167,7 +187,7 @@ body {
 
 .workspaceBody {
   display: grid;
-  gap: 14px;
+  gap: var(--space-4);
 }
 
 /* ─── Card ─── */
@@ -175,9 +195,9 @@ body {
 .card {
   background: var(--card);
   border: 1px solid var(--stroke);
-  border-radius: 16px;
-  box-shadow: 0 8px 26px #0a2c3815;
-  padding: 18px;
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-card);
+  padding: var(--space-5);
   backdrop-filter: blur(8px);
   animation: rise 0.45s ease-out;
 }
@@ -205,13 +225,13 @@ body {
 .grid.two {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
+  gap: var(--space-4);
 }
 
 .form,
 label {
   display: grid;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 label {
@@ -233,20 +253,33 @@ textarea {
   width: 100%;
   border: 1px solid #2f505924;
   background: #ffffffd9;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   padding: 10px 12px;
   color: var(--ink);
 }
 
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: var(--focus-ring);
+}
+
 button {
   border: none;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: linear-gradient(130deg, var(--accent), var(--accent-2));
   color: #fff;
   padding: 10px 14px;
   font-weight: 700;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: transform var(--duration-fast) ease, box-shadow var(--duration-fast) ease, opacity var(--duration-fast) ease, background-color var(--duration-fast) ease;
+}
+
+button:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
 
 button:hover:not(:disabled) {
@@ -281,7 +314,7 @@ button.secondary:hover:not(:disabled) {
 
 .row {
   display: flex;
-  gap: 8px;
+  gap: var(--space-2);
   flex-wrap: wrap;
 }
 
@@ -289,16 +322,16 @@ button.secondary:hover:not(:disabled) {
 
 .tableLike {
   display: grid;
-  gap: 10px;
+  gap: var(--space-3);
 }
 
 .entry {
   display: flex;
-  gap: 12px;
+  gap: var(--space-3);
   justify-content: space-between;
   align-items: center;
   border: 1px solid #294f571f;
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   padding: 10px 12px;
   background: #ffffffc0;
 }
@@ -307,7 +340,7 @@ button.secondary:hover:not(:disabled) {
 
 .periodSlider {
   display: grid;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .periodSliderLabel {
@@ -321,7 +354,7 @@ button.secondary:hover:not(:disabled) {
 .periodSliderTrack {
   display: flex;
   gap: 0;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   overflow: hidden;
   border: 1px solid #2f505930;
 }
@@ -336,7 +369,7 @@ button.secondary:hover:not(:disabled) {
   background: #ffffffd0;
   color: var(--muted);
   cursor: pointer;
-  transition: all 0.18s ease;
+  transition: background-color var(--duration-fast) ease, color var(--duration-fast) ease;
   text-align: center;
 }
 
@@ -368,13 +401,13 @@ button.secondary:hover:not(:disabled) {
 
 .postCard {
   display: grid;
-  gap: 4px;
+  gap: var(--space-1);
   padding: 12px 14px;
   border: 1px solid #2f505924;
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   background: #ffffffd0;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: border-color var(--duration-fast) ease, box-shadow var(--duration-fast) ease;
 }
 
 .postCard:hover {
@@ -395,7 +428,7 @@ button.secondary:hover:not(:disabled) {
 .postCardBadge {
   display: inline-block;
   padding: 2px 8px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   font-size: 0.72rem;
   font-weight: 700;
   text-transform: uppercase;
@@ -416,7 +449,7 @@ button.secondary:hover:not(:disabled) {
 .editorTopBar {
   display: flex;
   justify-content: space-between;
-  gap: 10px;
+  gap: var(--space-3);
   align-items: flex-end;
 }
 
@@ -427,7 +460,7 @@ button.secondary:hover:not(:disabled) {
 
 .mdPane {
   display: grid;
-  gap: 10px;
+  gap: var(--space-3);
 }
 
 .mdPane.mode-split {
@@ -439,7 +472,7 @@ button.secondary:hover:not(:disabled) {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   width: 100%;
   border: 1px solid #2f505924;
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   padding: 12px;
   background: #fff;
   resize: vertical;
@@ -448,7 +481,7 @@ button.secondary:hover:not(:disabled) {
 .markdown-viewer {
   min-height: 360px;
   border: 1px solid #2f505924;
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   padding: 12px;
   background: #fff;
   overflow: auto;
@@ -469,7 +502,7 @@ button.secondary:hover:not(:disabled) {
 .md-citation {
   background: #ffe59a;
   border: 1px solid #deb85a;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   color: #583f00;
   padding: 0 6px;
   font-size: 0.86em;
@@ -484,14 +517,14 @@ button.secondary:hover:not(:disabled) {
 }
 
 .revisionPanel {
-  margin-top: 12px;
+  margin-top: var(--space-3);
   border-top: 1px solid #2f505924;
-  padding-top: 10px;
+  padding-top: var(--space-3);
 }
 
 .tinyButton {
-  margin-left: 8px;
-  padding: 4px 8px;
+  margin-left: var(--space-2);
+  padding: var(--space-1) var(--space-2);
   font-size: 0.8rem;
 }
 
@@ -542,7 +575,7 @@ button.secondary:hover:not(:disabled) {
   width: min(680px, 90vw);
   background: var(--card);
   border: 1px solid var(--stroke);
-  border-radius: 20px;
+  border-radius: var(--radius-xl);
   box-shadow: 0 16px 48px #0a2c3830;
   backdrop-filter: blur(12px);
   overflow: hidden;
@@ -600,7 +633,7 @@ button.secondary:hover:not(:disabled) {
 .genPanelClose {
   width: 30px;
   height: 30px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: #ffffff90;
   border: 1px solid #2f505920;
   color: var(--muted);
@@ -609,7 +642,7 @@ button.secondary:hover:not(:disabled) {
   place-items: center;
   cursor: pointer;
   padding: 0;
-  transition: all 0.15s ease;
+  transition: background-color var(--duration-fast) ease, color var(--duration-fast) ease, border-color var(--duration-fast) ease;
 }
 
 .genPanelClose:hover {
@@ -622,12 +655,12 @@ button.secondary:hover:not(:disabled) {
 .genPanelBody {
   padding: 16px 18px;
   display: grid;
-  gap: 14px;
+  gap: var(--space-4);
 }
 
 .genPanelRow {
   display: flex;
-  gap: 24px;
+  gap: var(--space-4);
   align-items: center;
 }
 
@@ -641,7 +674,7 @@ button.secondary:hover:not(:disabled) {
 
 .genPanelActions {
   display: flex;
-  gap: 8px;
+  gap: var(--space-2);
   justify-content: flex-end;
   padding: 0 18px 16px;
 }
@@ -650,13 +683,13 @@ button.secondary:hover:not(:disabled) {
 
 .instructionBar {
   display: grid;
-  gap: 12px;
+  gap: var(--space-3);
 }
 
 .instructionModeRow {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-3);
   flex-wrap: wrap;
 }
 
@@ -678,19 +711,19 @@ button.secondary:hover:not(:disabled) {
 
 .modeToggleGroup {
   display: flex;
-  gap: 4px;
+  gap: var(--space-1);
 }
 
 .modeToggle {
   padding: 6px 14px;
   font-size: 0.82rem;
   font-weight: 600;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: #ffffffd0;
   color: var(--muted);
   border: 1px solid #2f505930;
   cursor: pointer;
-  transition: all 0.18s ease;
+  transition: background-color var(--duration-fast) ease, border-color var(--duration-fast) ease, color var(--duration-fast) ease;
 }
 
 .modeToggle:hover:not(:disabled) {
@@ -718,7 +751,7 @@ button.secondary:hover:not(:disabled) {
   color: var(--accent);
   background: #007a7415;
   border: 1px solid #007a7430;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   padding: 3px 10px;
   white-space: nowrap;
   overflow: hidden;
@@ -736,10 +769,10 @@ button.secondary:hover:not(:disabled) {
   resize: vertical;
   min-height: 60px;
   font-size: 0.9rem;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: #ffffffd9;
   border: 1px solid #2f505924;
-  transition: border-color 0.18s;
+  transition: border-color var(--duration-fast);
 }
 
 .instructionTextarea:focus {
@@ -758,12 +791,12 @@ button.secondary:hover:not(:disabled) {
 .btnSpinner {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .spinnerDots {
   display: inline-flex;
-  gap: 3px;
+  gap: var(--space-1);
   align-items: center;
 }
 
@@ -788,7 +821,7 @@ button.secondary:hover:not(:disabled) {
 .viewModeTabs {
   display: flex;
   gap: 0;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   overflow: hidden;
   border: 1px solid #2f505930;
   width: fit-content;
@@ -803,7 +836,7 @@ button.secondary:hover:not(:disabled) {
   background: #ffffffd0;
   color: var(--muted);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background-color var(--duration-fast) ease, color var(--duration-fast) ease;
 }
 
 .viewModeTab:not(:last-child) {
@@ -830,13 +863,13 @@ button.secondary:hover:not(:disabled) {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-3);
   flex-wrap: wrap;
 }
 
 .editorToolbarRight {
   display: flex;
-  gap: 8px;
+  gap: var(--space-2);
   align-items: center;
 }
 
@@ -845,9 +878,9 @@ button.secondary:hover:not(:disabled) {
 .autoTitleBar {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   padding: 10px 14px;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: #f8fdf8;
   border: 1px solid #2f505915;
 }
@@ -875,7 +908,7 @@ pre {
   word-break: break-word;
   background: #0e2a2e;
   color: #def1ef;
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   padding: 14px;
   overflow: auto;
   max-height: 480px;
@@ -986,7 +1019,8 @@ pre {
 @media (max-width: 900px) {
   .appShell {
     grid-template-columns: 1fr;
-    width: min(960px, 96vw);
+    width: min(960px, 100%);
+    padding: 0 var(--space-2);
   }
 
   .sideNav {
@@ -1008,8 +1042,35 @@ pre {
     grid-template-columns: 1fr;
   }
 
+  .sideMeta {
+    display: none;
+  }
+
+  .toastStack {
+    top: var(--space-2);
+    right: var(--space-2);
+    left: var(--space-2);
+    width: auto;
+  }
+
   .genPanelExpanded {
     width: 95vw;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .genPanelCollapsed,
+  .genPanelExpanded {
+    transition: none !important;
   }
 }
 
