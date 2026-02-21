@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Param, Post, Query, Res } from "@nestjs/common";
-import type { AgentProvider, GenerateBlogDto } from "@velogen/shared";
+import type { AgentProvider, GenerateBlogDto, GenerationClarificationContext } from "@velogen/shared";
 import type { Response } from "express";
 import { SessionsService } from "../sessions/sessions.service";
 
@@ -17,11 +17,47 @@ interface GenerateStreamQuery {
   userInstruction?: string;
   refinePostId?: string;
   generateImage?: string;
+  skipPreflight?: string;
+  clarificationContext?: string;
+}
+
+function parseClarificationContext(value?: string): GenerationClarificationContext | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  try {
+    const parsed = JSON.parse(value);
+    if (parsed === null || typeof parsed !== "object") {
+      return undefined;
+    }
+
+    const maybeContext = parsed as Partial<GenerationClarificationContext>;
+    if (typeof maybeContext.turn !== "number" || !Number.isInteger(maybeContext.turn)) {
+      return undefined;
+    }
+
+    if (typeof maybeContext.maxTurns !== "number" || !Number.isInteger(maybeContext.maxTurns)) {
+      return undefined;
+    }
+
+    if (!Array.isArray(maybeContext.answers)) {
+      return undefined;
+    }
+
+    return {
+      turn: maybeContext.turn,
+      maxTurns: maybeContext.maxTurns,
+      answers: maybeContext.answers
+    };
+  } catch {
+    return undefined;
+  }
 }
 
 @Controller("sessions/:sessionId/generate")
 export class GenerationController {
-  constructor(private readonly sessionsService: SessionsService) {}
+  constructor(private readonly sessionsService: SessionsService) { }
 
   @Post()
   generate(@Param("sessionId") sessionId: string, @Body() payload?: GenerateBlogDto) {
@@ -34,7 +70,34 @@ export class GenerationController {
       request.format,
       request.userInstruction,
       request.refinePostId,
-      request.generateImage
+      request.generateImage,
+      request.skipPreflight,
+      request.clarificationContext
+    );
+  }
+
+  @Post("stream")
+  async generateStreamPost(
+    @Param("sessionId") sessionId: string,
+    @Body() payload: GenerateBlogDto,
+    @Res() res: Response
+  ): Promise<void> {
+    const request = payload ?? {};
+    const allowedProviders: AgentProvider[] = ["mock", "claude", "codex", "opencode", "gemini"];
+    const providerParam = request.provider ?? "mock";
+    const provider = allowedProviders.includes(providerParam) ? providerParam : "mock";
+
+    await this.streamGeneration(
+      res,
+      sessionId,
+      provider,
+      request.tone,
+      request.format,
+      request.userInstruction,
+      request.refinePostId,
+      request.generateImage,
+      request.skipPreflight,
+      request.clarificationContext
     );
   }
 
@@ -45,17 +108,37 @@ export class GenerationController {
     @Res() res: Response
   ): Promise<void> {
     const providerParam = query.provider ?? "mock";
-    const tone = query.tone;
-    const format = query.format;
-    const userInstruction = query.userInstruction;
-    const refinePostId = query.refinePostId;
-    const generateImage = query.generateImage === "true";
-
     const allowedProviders: AgentProvider[] = ["mock", "claude", "codex", "opencode", "gemini"];
     const provider = allowedProviders.includes(providerParam as AgentProvider)
       ? (providerParam as AgentProvider)
       : "mock";
 
+    await this.streamGeneration(
+      res,
+      sessionId,
+      provider,
+      query.tone,
+      query.format,
+      query.userInstruction,
+      query.refinePostId,
+      query.generateImage === "true",
+      query.skipPreflight === "true",
+      parseClarificationContext(query.clarificationContext)
+    );
+  }
+
+  private async streamGeneration(
+    res: Response,
+    sessionId: string,
+    provider: AgentProvider,
+    tone?: string,
+    format?: string,
+    userInstruction?: string,
+    refinePostId?: string,
+    generateImage?: boolean,
+    skipPreflight?: boolean,
+    clarificationContext?: GenerationClarificationContext
+  ): Promise<void> {
     res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
     res.setHeader("Cache-Control", "no-cache, no-transform");
     res.setHeader("Connection", "keep-alive");
@@ -78,7 +161,9 @@ export class GenerationController {
         },
         userInstruction,
         refinePostId,
-        generateImage
+        generateImage,
+        skipPreflight,
+        clarificationContext
       );
       send({ type: "complete", post: result });
       res.end();

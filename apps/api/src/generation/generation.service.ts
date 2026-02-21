@@ -1,6 +1,16 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
-import type { AgentProvider, BlogPostResult, GenerationMeta } from "@velogen/shared";
+import type {
+  AgentProvider,
+  BlogPostResult,
+  GenerationClarificationResponse,
+  GenerationMeta,
+  GenerateBlogResponse,
+  GenerationMissingField,
+  GenerationClarificationContext,
+  GenerationClarificationQuestion,
+  GenerationClarificationAnswer
+} from "@velogen/shared";
 import { DatabaseService } from "../database/database.service";
 import { AgentRunnerService } from "./agent-runner.service";
 import { ContentIngestionService } from "../sync/content-ingestion.service";
@@ -37,8 +47,24 @@ interface PromptItem {
   evidence: string;
 }
 
+interface ClarificationQuestionCandidate {
+  id: string;
+  question: string;
+  rationale: string;
+}
+
 @Injectable()
 export class GenerationService {
+  private static readonly promptGuidanceFiles = [
+    "AGENTS.md",
+    "rules/blog-input-analysis.md",
+    "rules/blog.md",
+    "rules/blog-prompt.md",
+    "review-guide/blog.md"
+  ];
+  private static readonly defaultClarificationMaxTurns = 3;
+  private static readonly minItemsForSufficientData = 4;
+
   constructor(
     private readonly databaseService: DatabaseService,
     private readonly ingestionService: ContentIngestionService,
@@ -53,9 +79,22 @@ export class GenerationService {
     userInstruction?: string,
     refinePostBody?: string,
     refinePostId?: string,
-    generateImage?: boolean
-  ): Promise<BlogPostResult> {
-    const prepared = await this.prepareGenerationContext(sessionId, tone, format, userInstruction, refinePostBody);
+    generateImage?: boolean,
+    skipPreflight?: boolean,
+    clarificationContext?: GenerationClarificationContext
+  ): Promise<GenerateBlogResponse> {
+    const prepared = await this.prepareGenerationContext(
+      sessionId,
+      tone,
+      format,
+      userInstruction,
+      refinePostBody,
+      skipPreflight,
+      clarificationContext
+    );
+    if (prepared.requiresClarification) {
+      return prepared.requiresClarification;
+    }
     const generatedBody =
       provider === "mock"
         ? this.mockGenerate(prepared.prompt, prepared.items)
@@ -63,8 +102,8 @@ export class GenerationService {
 
     const meta: GenerationMeta = {
       provider,
-      tone: tone || undefined,
-      format: format || undefined,
+      tone: prepared.resolvedTone,
+      format: prepared.resolvedFormat,
       userInstruction: userInstruction || undefined,
       refinePostId: refinePostId || undefined,
       generateImage,
@@ -83,9 +122,22 @@ export class GenerationService {
     userInstruction?: string,
     refinePostBody?: string,
     refinePostId?: string,
-    generateImage?: boolean
-  ): Promise<BlogPostResult> {
-    const prepared = await this.prepareGenerationContext(sessionId, tone, format, userInstruction, refinePostBody);
+    generateImage?: boolean,
+    skipPreflight?: boolean,
+    clarificationContext?: GenerationClarificationContext
+  ): Promise<GenerateBlogResponse> {
+    const prepared = await this.prepareGenerationContext(
+      sessionId,
+      tone,
+      format,
+      userInstruction,
+      refinePostBody,
+      skipPreflight,
+      clarificationContext
+    );
+    if (prepared.requiresClarification) {
+      return prepared.requiresClarification;
+    }
     const generatedBody =
       provider === "mock"
         ? this.mockGenerate(prepared.prompt, prepared.items)
@@ -99,8 +151,8 @@ export class GenerationService {
 
     const meta: GenerationMeta = {
       provider,
-      tone: tone || undefined,
-      format: format || undefined,
+      tone: prepared.resolvedTone,
+      format: prepared.resolvedFormat,
       userInstruction: userInstruction || undefined,
       refinePostId: refinePostId || undefined,
       generateImage,
@@ -115,18 +167,73 @@ export class GenerationService {
     tone?: string,
     format?: string,
     userInstruction?: string,
-    refinePostBody?: string
+    refinePostBody?: string,
+    skipPreflight?: boolean,
+    clarificationContext?: GenerationClarificationContext
   ): Promise<{
     session: SessionInfo;
     items: ContentItemRow[];
     prompt: string;
     sources: Array<{ sourceId: string; name: string; type: string }>;
+    resolvedTone: string;
+    resolvedFormat: string;
+    requiresClarification?: GenerationClarificationResponse;
   }> {
+    const normalizedContext = this.normalizeClarificationContext(clarificationContext);
+
     const session = this.databaseService.connection
       .prepare("SELECT id, title, tone, format FROM sessions WHERE id = ?")
       .get(sessionId) as SessionInfo | undefined;
     if (!session) {
       throw new NotFoundException(`Session not found: ${sessionId}`);
+    }
+
+    const normalizedTone = tone?.trim();
+    const normalizedFormat = format?.trim();
+    const hasTone = Boolean(normalizedTone && normalizedTone.length > 0);
+    const hasFormat = Boolean(normalizedFormat && normalizedFormat.length > 0);
+
+    const requestedTone = normalizedTone ?? session.tone?.trim() ?? undefined;
+    const requestedFormat = normalizedFormat ?? session.format?.trim() ?? undefined;
+    const defaults = {
+      tone: requestedTone ?? "기본 톤",
+      format: requestedFormat ?? "기본 기술 블로그 형식"
+    };
+    const resolvedTone = requestedTone ?? defaults.tone;
+    const resolvedFormat = requestedFormat ?? defaults.format;
+
+    const missing: GenerationMissingField[] = [];
+    if (!hasTone && !session.tone?.trim()) {
+      missing.push({
+        field: "tone",
+        question: "톤/문체를 입력해주세요.",
+        suggestion: defaults.tone
+      });
+    }
+    if (!hasFormat && !session.format?.trim()) {
+      missing.push({
+        field: "format",
+        question: "글 형식(예: 회고, 튜토리얼, 기술 분석)을 입력해주세요.",
+        suggestion: defaults.format
+      });
+    }
+
+    if (!skipPreflight && missing.length > 0) {
+      return {
+        session,
+        items: [],
+        sources: [],
+        prompt: "",
+        resolvedTone: defaults.tone,
+        resolvedFormat: defaults.format,
+        requiresClarification: {
+          requiresClarification: true,
+          message: "생성 전에 톤과 형식을 확인해야 합니다.",
+          defaults,
+          missing,
+          context: normalizedContext
+        }
+      };
     }
 
     const sourceIds = this.databaseService.connection
@@ -155,11 +262,223 @@ export class GenerationService {
       )
       .all(sessionId) as ContentItemRow[];
 
-    const requestedTone = tone ?? session.tone ?? "기본 톤";
-    const requestedFormat = format ?? session.format ?? "기본 기술 블로그 형식";
-    const prompt = this.buildPrompt(session.title, requestedTone, requestedFormat, items, userInstruction, refinePostBody);
+    const promptItems = this.toPromptItems(items);
+    const sourceCoverageIssues = this.findDataCoverageGaps(promptItems, userInstruction, refinePostBody, normalizedContext);
 
-    return { session, items, prompt, sources: sourcesSnapshot };
+    if (sourceCoverageIssues.length > 0 && normalizedContext.turn < normalizedContext.maxTurns) {
+      const clarifyingQuestions = sourceCoverageIssues.map((issue) => ({
+        id: issue.id,
+        question: issue.question,
+        rationale: issue.rationale
+      }));
+
+      return {
+        session,
+        items,
+        prompt: "",
+        resolvedTone,
+        resolvedFormat,
+        sources: [],
+        requiresClarification: {
+          requiresClarification: true,
+          message: "현재 수집 데이터만으로는 글의 방향을 확정하기 어렵습니다. 추가 정보를 받아 정확도를 높입니다.",
+          defaults,
+          missing,
+          clarifyingQuestions,
+          context: {
+            ...normalizedContext,
+            turn: normalizedContext.turn + 1
+          }
+        }
+      };
+    }
+
+    const shouldIncludeClarificationContext =
+      normalizedContext.answers.length > 0 ||
+      (sourceCoverageIssues.length > 0 && normalizedContext.turn >= normalizedContext.maxTurns);
+    const prompt = this.buildPrompt(
+      session.title,
+      resolvedTone,
+      resolvedFormat,
+      items,
+      userInstruction,
+      refinePostBody,
+      shouldIncludeClarificationContext ? normalizedContext : undefined
+    );
+
+    return {
+      session,
+      items,
+      prompt,
+      resolvedTone,
+      resolvedFormat,
+      sources: sourcesSnapshot
+    };
+  }
+
+  private normalizeClarificationContext(clarificationContext?: GenerationClarificationContext): GenerationClarificationContext {
+    const nextContext: Partial<GenerationClarificationContext> = clarificationContext ?? {};
+    const maxTurns = nextContext.maxTurns !== undefined && Number.isFinite(nextContext.maxTurns)
+      ? Math.max(1, Math.floor(nextContext.maxTurns))
+      : GenerationService.defaultClarificationMaxTurns;
+    const turn = nextContext.turn !== undefined && Number.isFinite(nextContext.turn)
+      ? Math.max(0, Math.floor(nextContext.turn))
+      : 0;
+
+    return {
+      turn,
+      maxTurns,
+      answers: this.normalizeClarificationAnswers(clarificationContext?.answers)
+    };
+  }
+
+  private normalizeClarificationAnswers(answers?: GenerationClarificationAnswer[]): GenerationClarificationAnswer[] {
+    if (!Array.isArray(answers)) {
+      return [];
+    }
+
+    const byQuestionId = new Map<string, GenerationClarificationAnswer>();
+    for (const answer of answers) {
+      const questionId = answer?.questionId?.trim();
+      const question = answer?.question?.trim();
+      const answerText = answer?.answer?.trim();
+      if (!questionId || !question || !answerText) {
+        continue;
+      }
+      byQuestionId.set(questionId, {
+        questionId,
+        question,
+        answer: answerText
+      });
+    }
+    return Array.from(byQuestionId.values());
+  }
+
+  private findDataCoverageGaps(
+    items: PromptItem[],
+    userInstruction?: string,
+    refinePostBody?: string,
+    clarificationContext?: GenerationClarificationContext
+  ): ClarificationQuestionCandidate[] {
+    const candidates: ClarificationQuestionCandidate[] = [];
+
+    if (items.length === 0) {
+      return [
+        {
+          id: "insufficient-items",
+          question:
+            "수집된 항목이 충분하지 않습니다. 어떤 작업 흐름이나 변경 포인트를 중심으로 글을 쓰고 싶은지 3~5개 항목으로 정리해 주세요.",
+          rationale: "메인 근거 데이터가 없어 대상 내용의 범위를 정할 수 없음"
+        }
+      ];
+    }
+
+    const answeredIds = new Set((clarificationContext?.answers ?? []).map((answer) => answer.questionId));
+    const uniqueMonths = new Set(items
+      .map((item) => item.monthBucket)
+      .filter((monthBucket) => monthBucket !== "unknown"));
+    const uniqueThemes = new Set(items.map((item) => item.theme));
+    const sourceTypes = new Set(items.map((item) => item.sourceType));
+    const authors = new Set(items.map((item) => item.author).filter((author) => author !== "unknown"));
+
+    const request = `${userInstruction ?? ""}`.toLowerCase();
+    const toneRef = `${refinePostBody ?? ""}`.toLowerCase();
+    const isRetrospective = request.includes("회고") || request.includes("리뷰") || request.includes("postmortem");
+    const isTutorial = request.includes("튜토리얼") || request.includes("안내") || request.includes("가이드");
+
+    if (items.length < GenerationService.minItemsForSufficientData) {
+      const id = "insufficient-items";
+      if (!answeredIds.has(id)) {
+        candidates.push({
+          id,
+          question:
+            "현재 데이터가 적어 이야기할 근거가 제한적입니다. 글에서 꼭 다루고 싶은 변경 포인트를 2~4개 더 구체적으로 넣어 주세요.",
+          rationale: "근거 항목 수가 목표 글 양식에 비해 적음"
+        });
+      }
+    }
+
+    if (uniqueMonths.size < 2 && items.length >= 3) {
+      const id = "time-range-context";
+      if (!answeredIds.has(id)) {
+        candidates.push({
+          id,
+          question: "시간축이 짧거나 불명확합니다. 기간 구분(예: 월별/단계별) 기준으로 글의 시작~끝을 정해 주세요.",
+          rationale: "시간 순서를 바탕으로 문제-시도-결과 흐름을 구성하려면 기간 컨텍스트가 필요"
+        });
+      }
+    }
+
+    if (uniqueThemes.size < 2 && items.length >= 4) {
+      const id = "theme-focus";
+      if (!answeredIds.has(id)) {
+        candidates.push({
+          id,
+          question: "핵심 테마가 좁습니다. 글에서 다룰 대표 테마(예: 안정성, 성능, UX, 운영)을 2개 이상 제시해 주세요.",
+          rationale: "테마 분류가 제한되면 Thematic Insights 섹션 구성이 부족해질 수 있음"
+        });
+      }
+    }
+
+    if (!answeredIds.has("audience-depth") && (isTutorial || isRetrospective)) {
+      const id = "audience-depth";
+      if (isTutorial || isRetrospective) {
+        candidates.push({
+          id,
+          question:
+            "독자 수준(초급/중급/실무팀)과 깊이를 선택해 주세요. 특히 '결론 메시지(주요 인사이트)'를 먼저 알려주세요.",
+          rationale: "요청된 글 형태에 맞는 설명 깊이와 서술 톤을 고정하기 위해 필요"
+        });
+      }
+    }
+
+    if (sourceTypes.size === 1 && !answeredIds.has("source-balance")) {
+      candidates.push({
+        id: "source-balance",
+        question: `현재는 ${sourceTypes.values().next().value} 소스가 주입니다. 운영 맥락(회의록/문서/리뷰 의견) 또는 배포 이슈 정보가 있으면 보충해 주세요.`,
+        rationale: "단일 소스 데이터만으로는 의사결정 근거나 트레이드오프 설명이 부족함"
+      });
+    }
+
+    if (authors.size <= 1 && items.length >= 5 && !answeredIds.has("stakeholder-impact")) {
+      candidates.push({
+        id: "stakeholder-impact",
+        question: "이 작업에서 이해관계자/협업 대상이 있었다면 영향권(팀, 사용자, 사용자 요청)을 알려주세요.",
+        rationale: "결과 및 학습 섹션의 파급효과 설명을 강화하기 위해 필요"
+      });
+    }
+
+    if (toneRef.includes("refine") && !answeredIds.has("refine-focus")) {
+      candidates.push({
+        id: "refine-focus",
+        question: "수정 모드에서 특히 중점 보완할 부분(문장 톤, 근거 보강, 누락된 위험/트레이드오프)을 2~3개로 정리해 주세요.",
+        rationale: "기존 초안을 재작성할 때 수정 방향을 정확히 고정해야 일관성 유지"
+      });
+    }
+
+    return candidates.slice(0, 2);
+  }
+
+  private buildClarificationBlock(clarificationContext?: GenerationClarificationContext): string | null {
+    const answers = this.normalizeClarificationAnswers(clarificationContext?.answers);
+    const answerLines = answers
+      .map((answer) => `- ${answer.question}\n  답변: ${answer.answer}`)
+      .join("\n\n");
+
+    const fallbackNotice = clarificationContext?.turn && clarificationContext.turn >= clarificationContext.maxTurns
+      ? [
+        "",
+        "※ 참고: 최대 질문 횟수 제한으로 추가 질문 없이 작성을 진행합니다. 위 응답은 반영에 반영되었습니다."
+      ].join("\n")
+      : "";
+
+    if (answers.length === 0 && fallbackNotice.length === 0) {
+      return null;
+    }
+
+    return ["[USER CLARIFICATION INPUT]", answerLines, fallbackNotice]
+      .filter((line) => line.length > 0)
+      .join("\n");
   }
 
   private persistGeneratedPost(
@@ -204,7 +523,8 @@ export class GenerationService {
     format: string,
     items: ContentItemRow[],
     userInstruction?: string,
-    refinePostBody?: string
+    refinePostBody?: string,
+    clarificationContext?: GenerationClarificationContext
   ): string {
     const normalizedItems = this.toPromptItems(items);
     const timeline = this.buildTimelineSection(normalizedItems);
@@ -229,38 +549,16 @@ export class GenerationService {
       ? ["[USER INSTRUCTION]", userInstruction.trim(), ""].join("\n")
       : null;
 
+    const clarificationBlock = this.buildClarificationBlock(clarificationContext);
+
     const basePrompt = [
-      `블로그 제목: ${title}`,
-      `톤/문체 요청: ${tone}`,
-      `형식 요청: ${format}`,
-      refinePostBody
-        ? "목표: 제공된 엔지니어링 회고형 테크 블로그 초안을 소스 데이터와 사용자 지시사항을 반영하여 개선합니다."
-        : "목표: 엔지니어링 회고형 테크 블로그를 작성합니다.",
-      "규칙: 반드시 입력된 소스를 기반으로 글을 작성하고, 소스에 없는 내용을 추가하지 않습니다.",
-      "제목은 반드시 주어진 제목만 사용할 필요는 없고, 내용에 어울리는 제목으로 수정되어도 괜찮습니다.",
-      "각 섹션은 내용에 어울리는 부제를 붙이고, 블로그 글 이므로 지나친 요약대신 독자가 이탈하지 않고 읽을 수 있도록 내용 전개가 필요합니다.",
-      "[WRITING GUIDELINES]",
-      "- 내부 문서와 커밋을 기반으로 작성하고 있으므로, 출처는 절대로 명시하지 마세요.",
-      "- chronology를 유지하되, 독자가 이해하기 쉽게 문제-시도-결과-학습 흐름으로 재구성합니다.",
-      "- 단, 각 사건을 문제,시도,결과,학습의 단순 요약으로 끝내지 말고, 그 사건이 어떻게 해결되었는지 풀어서 설명해야 합니다.",
-      "  예를 들면 '사건 A에 어떤 문제가 발생 했을때, 우리는 우선 B를 시도했고, 그 결과 C가 발생했다/해결되었습니다. 이 과정을 통해 우리는 D를 학습하게 되었습니다.' 라는 흐름을 커밋 내용을 기반으로 가능한 길게 풀어서 설명해줘야 합니다.",
-      "- commit/notion 원문을 복붙하지 말고 의미를 통합 요약합니다.",
-      "- 마지막에 후속 액션 아이템을 실행 가능한 checklist로 작성합니다.",
-      "- 출력 형식은 아래 순서와 내용을 따르고, 반드시 Markdown 문법을 따라야 합니다.",
-      "1) Executive Summary",
-      "2) Timeline Review",
-      "3) Thematic Insights",
-      "4) Decisions & Trade-offs",
-      "5) Next Iteration Plan",
-      "- 우리의 내부 문서가 아니라 블로그이므로, 블로그의 톤과 문체를 유지해야 합니다. 주 대상 독자는 개발자 이지만, 비개발자도 흥미있게 읽을 수 있도록 글이 너무 딱딱하거나, 지나치게 기술 설명 중심으로 흘러가지 않도록 주의해야 합니다.",
-      "- 마지막 Next Iteration Plan은 단순히 다음에 할 수 있는것을 나열하기만 하고, todo 문법으로 작성하지 않습니다.",
-      "- 잘 모르는 내용이 있거나 내용 보완이 필요한 경우 웹 검색을 시도 해서 추가 정보를 찾아도 됩니다. 단, medium, reddit 등 개인 블로그나 커뮤니티의 정보는 탐색하지 말고 관련 기술의 공식 문서 또는 github README 등을 참고하세요.",
-      "",
+      ...this.loadPromptGuidanceBlocks(),
     ];
 
     const fullContent = [
       ...(refinePreamble ? [refinePreamble] : []),
       ...(instructionBlock ? [instructionBlock] : []),
+      ...(clarificationBlock ? [clarificationBlock] : []),
       ...basePrompt,
       "[TIMELINE INPUT]",
       timeline,
@@ -295,6 +593,15 @@ export class GenerationService {
     ].join("\n\n");
 
     return compactContent;
+  }
+
+  private loadPromptGuidanceBlocks(): string[] {
+    return [
+      "아래 경로에 위치한 룰을 먼저 숙지하고, 그에 따라 글을 생성하세요.",
+      "[OPERATING GUIDELINES (path only)]",
+      ...GenerationService.promptGuidanceFiles.map((filePath) => `- ${filePath}`),
+      ""
+    ];
   }
 
   private toPromptItems(items: ContentItemRow[]): PromptItem[] {

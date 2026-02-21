@@ -1,7 +1,13 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { AgentProvider, SourceSummary } from "@velogen/shared";
+import type {
+  AgentProvider,
+  GenerationClarificationAnswer,
+  GenerationClarificationContext,
+  GenerationClarificationResponse,
+  SourceSummary
+} from "@velogen/shared";
 import { API_BASE, apiRequest } from "../../lib/api-client";
 import { PERIOD_OPTIONS } from "./constants";
 import type {
@@ -47,6 +53,8 @@ export function useWorkspaceController() {
   const [postTitleDraft, setPostTitleDraft] = useState("");
   const [postBodyDraft, setPostBodyDraft] = useState("");
   const [postStatusDraft, setPostStatusDraft] = useState<"draft" | "published">("draft");
+  const [clarification, setClarification] = useState<GenerationClarificationResponse | null>(null);
+  const [clarificationAnswers, setClarificationAnswers] = useState<GenerationClarificationAnswer[]>([]);
   const [revisions, setRevisions] = useState<PostRevision[]>([]);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [sessionTitle, setSessionTitle] = useState("Weekly Engineering Digest");
@@ -67,8 +75,7 @@ export function useWorkspaceController() {
   const [status, setStatus] = useState("Ready");
   const [genPanelOpen, setGenPanelOpen] = useState(true);
 
-  const streamRef = useRef<EventSource | null>(null);
-  const streamParseErrorNotifiedRef = useRef(false);
+  const streamAbortRef = useRef<AbortController | null>(null);
   const previousHeadingCountRef = useRef(0);
   const previousCitationCountRef = useRef(0);
 
@@ -232,9 +239,9 @@ export function useWorkspaceController() {
 
   useEffect(() => {
     return () => {
-      if (streamRef.current) {
-        streamRef.current.close();
-        streamRef.current = null;
+      if (streamAbortRef.current) {
+        streamAbortRef.current.abort();
+        streamAbortRef.current = null;
       }
     };
   }, []);
@@ -440,156 +447,245 @@ export function useWorkspaceController() {
     }
   }, [format, provider, refreshSessions, selectedSessionId, tone]);
 
-  const onGenerate = useCallback(async (): Promise<void> => {
-    if (!selectedSessionId) {
-      setStatus("Create or select a session first");
-      pushToast("Create or select a session first", "error");
-      return;
-    }
+  const isGenerationClarificationResponse = useCallback(
+    (response: GeneratedPost | GenerationClarificationResponse): response is GenerationClarificationResponse => {
+      return "requiresClarification" in response && response.requiresClarification;
+    },
+    []
+  );
 
-    if (streamRef.current) {
-      streamRef.current.close();
-      streamRef.current = null;
-    }
+  const normalizeClarificationAnswers = useCallback((answers: GenerationClarificationAnswer[]) => {
+    const byQuestionId = new Map<string, GenerationClarificationAnswer>();
 
-    setPanel("editor");
-    setIsGenerating(true);
-    setGeneratedPost(null);
-    setSelectedPostId("");
-    setPostStatusDraft("draft");
-    setPostTitleDraft(selectedSession?.title ?? "Streaming Draft");
-    setPostBodyDraft("");
-    setStatus("Generating blog post...");
-    pushToast("Generation started", "info");
+    for (const answer of answers) {
+      const questionId = answer.questionId.trim();
+      const question = answer.question.trim();
 
-    if (typeof window === "undefined" || !("EventSource" in window)) {
-      try {
-        const post = await apiRequest<GeneratedPost>(`/sessions/${selectedSessionId}/generate`, {
-          method: "POST",
-          body: JSON.stringify({
-            provider,
-            tone: tone || undefined,
-            format: format || undefined,
-            userInstruction: userInstruction || undefined,
-            refinePostId: generateMode === "refine" && selectedPostId ? selectedPostId : undefined,
-            generateImage: autoGenerateImages
-          })
-        });
-        setGeneratedPost(post);
-        setSelectedPostId(post.id);
-        setPostTitleDraft(post.title);
-        setPostBodyDraft(post.body);
-        setPostStatusDraft(post.status);
-        await refreshSessionDetails(selectedSessionId);
-        setStatus("Blog post generated");
-        pushToast("Blog post generated", "success");
-        setIsGenerating(false);
-        if (autoGenerateImages) {
-          const enriched = await generateAndInsertImages(post.body);
-          setPostBodyDraft(enriched);
-        }
-      } catch (error) {
-        const message = error instanceof Error ? error.message : "Failed to generate";
-        setStatus(message);
-        pushToast(message, "error");
-        setIsGenerating(false);
+      if (!questionId || !question || answer.answer.trim().length === 0) {
+        continue;
       }
-      return;
+
+      byQuestionId.set(questionId, {
+        questionId,
+        question,
+        answer: answer.answer
+      });
     }
 
-    const params = new URLSearchParams({ provider, generateImage: String(autoGenerateImages) });
-    if (tone.trim().length > 0) {
-      params.set("tone", tone);
-    }
-    if (format.trim().length > 0) {
-      params.set("format", format);
-    }
-    if (userInstruction.trim().length > 0) {
-      params.set("userInstruction", userInstruction);
-    }
-    if (generateMode === "refine" && selectedPostId) {
-      params.set("refinePostId", selectedPostId);
-    }
+    return Array.from(byQuestionId.values());
+  }, []);
 
-    let completed = false;
-    const stream = new EventSource(`${API_BASE}/sessions/${selectedSessionId}/generate/stream?${params.toString()}`);
-    streamRef.current = stream;
-    streamParseErrorNotifiedRef.current = false;
-
-    stream.onmessage = (event) => {
-      try {
-        const payload = JSON.parse(event.data) as
-          | { type: "status"; message: string }
-          | { type: "chunk"; chunk: string }
-          | { type: "complete"; post: GeneratedPost }
-          | { type: "error"; message: string };
-
-        if (payload.type === "status") {
-          setStatus(payload.message);
-          return;
-        }
-
-        if (payload.type === "chunk") {
-          setPostBodyDraft((current) => current + payload.chunk);
-          return;
-        }
-
-        if (payload.type === "complete") {
-          completed = true;
-          stream.close();
-          streamRef.current = null;
-          setGeneratedPost(payload.post);
-          setSelectedPostId(payload.post.id);
-          setPostTitleDraft(payload.post.title);
-          setPostStatusDraft(payload.post.status);
-          setStatus("Blog post generated");
-          pushToast("Blog post generated", "success");
-          void refreshSessionDetails(selectedSessionId);
-          setIsGenerating(false);
-          if (autoGenerateImages) {
-            void (async () => {
-              const enriched = await generateAndInsertImages(payload.post.body);
-              setPostBodyDraft(enriched);
-            })();
+  const onClarificationAnswerChange = useCallback(
+    (questionId: string, question: string, answer: string) => {
+      setClarificationAnswers((prev) =>
+        normalizeClarificationAnswers([
+          ...prev,
+          {
+            questionId,
+            question,
+            answer
           }
-          return;
-        }
+        ])
+      );
+    },
+    [normalizeClarificationAnswers]
+  );
 
-        if (payload.type === "error") {
-          completed = true;
-          stream.close();
-          streamRef.current = null;
-          setStatus(payload.message);
-          pushToast(payload.message, "error");
-          setIsGenerating(false);
-        }
-      } catch {
-        if (!streamParseErrorNotifiedRef.current) {
-          streamParseErrorNotifiedRef.current = true;
-          setStatus("Received malformed stream payload");
-          pushToast("Received malformed stream payload", "error");
-        }
+  const buildRetryClarificationContext = useCallback(
+    (clarificationDraftAnswers?: GenerationClarificationAnswer[]): GenerationClarificationContext | undefined => {
+      if (!clarification?.context) {
+        return undefined;
       }
-    };
 
-    stream.onerror = () => {
-      if (completed) {
+      return {
+        ...clarification.context,
+        answers: normalizeClarificationAnswers(clarificationDraftAnswers ?? clarificationAnswers)
+      };
+    },
+    [clarification?.context, clarificationAnswers, normalizeClarificationAnswers]
+  );
+
+  const applyClarification = useCallback(
+    (response: GenerationClarificationResponse) => {
+      if (response.missing.some((item) => item.field === "tone") && tone.trim().length === 0) {
+        setTone(response.defaults.tone);
+      }
+
+      if (response.missing.some((item) => item.field === "format") && format.trim().length === 0) {
+        setFormat(response.defaults.format);
+      }
+
+      setClarification(response);
+      setClarificationAnswers(normalizeClarificationAnswers(response.context?.answers ?? []));
+      setStatus(response.message);
+      pushToast(response.message, "info");
+      setIsGenerating(false);
+    },
+    [
+      format,
+      normalizeClarificationAnswers,
+      pushToast,
+      setFormat,
+      setStatus,
+      setTone,
+      tone
+    ]
+  );
+
+  const clearClarification = useCallback(() => {
+    setClarification(null);
+    setClarificationAnswers([]);
+  }, []);
+
+  const onGenerate = useCallback(
+    async (
+      skipPreflight = false,
+      clarificationContext?: GenerationClarificationContext
+    ): Promise<void> => {
+      if (!selectedSessionId) {
+        setStatus("Create or select a session first");
+        pushToast("Create or select a session first", "error");
         return;
       }
 
-      stream.close();
-      streamRef.current = null;
-      setIsGenerating(false);
-      setStatus("Streaming disconnected");
-      pushToast("Streaming disconnected", "error");
-    };
-  }, [
+      if (streamAbortRef.current) {
+        streamAbortRef.current.abort();
+        streamAbortRef.current = null;
+      }
+
+      setPanel("editor");
+      setIsGenerating(true);
+      setGeneratedPost(null);
+      if (!clarificationContext) {
+        setClarification(null);
+        setClarificationAnswers([]);
+      }
+      setSelectedPostId("");
+      setPostStatusDraft("draft");
+      setPostTitleDraft(selectedSession?.title ?? "Streaming Draft");
+      setPostBodyDraft("");
+      setStatus("Generating blog post...");
+      pushToast("Generation started", "info");
+
+      const requestBody = {
+        provider,
+        tone: tone || undefined,
+        format: format || undefined,
+        userInstruction: userInstruction || undefined,
+        refinePostId: generateMode === "refine" && selectedPostId ? selectedPostId : undefined,
+        generateImage: autoGenerateImages,
+        skipPreflight,
+        clarificationContext
+      };
+
+      const abortController = new AbortController();
+      streamAbortRef.current = abortController;
+
+      try {
+        const response = await fetch(`${API_BASE}/sessions/${selectedSessionId}/generate/stream`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(requestBody),
+          signal: abortController.signal
+        });
+
+        if (!response.ok || !response.body) {
+          const errorText = await response.text().catch(() => "Unknown error");
+          throw new Error(errorText || `HTTP ${response.status}`);
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        let completed = false;
+
+        while (!completed) {
+          const { done, value } = await reader.read();
+          if (done) {
+            break;
+          }
+
+          buffer += decoder.decode(value, { stream: true });
+
+          const lines = buffer.split("\n");
+          buffer = lines.pop() ?? "";
+
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed.startsWith("data: ")) {
+              continue;
+            }
+
+            const jsonStr = trimmed.slice(6);
+            if (!jsonStr) {
+              continue;
+            }
+
+            try {
+              const payload = JSON.parse(jsonStr) as
+                | { type: "status"; message: string }
+                | { type: "chunk"; chunk: string }
+                | { type: "complete"; post: GeneratedPost | GenerationClarificationResponse }
+                | { type: "error"; message: string };
+
+              if (payload.type === "status") {
+                setStatus(payload.message);
+              } else if (payload.type === "chunk") {
+                setPostBodyDraft((current) => current + payload.chunk);
+              } else if (payload.type === "complete") {
+                completed = true;
+                const post = payload.post;
+
+                if (isGenerationClarificationResponse(post)) {
+                  applyClarification(post);
+                } else {
+                  setClarification(null);
+                  setGeneratedPost(post);
+                  setSelectedPostId(post.id);
+                  setPostTitleDraft(post.title);
+                  setPostBodyDraft(post.body);
+                  setPostStatusDraft(post.status);
+                  setStatus("Blog post generated");
+                  pushToast("Blog post generated", "success");
+                  void refreshSessionDetails(selectedSessionId);
+                  if (autoGenerateImages) {
+                    void (async () => {
+                      const enriched = await generateAndInsertImages(post.body);
+                      setPostBodyDraft(enriched);
+                    })();
+                  }
+                }
+              } else if (payload.type === "error") {
+                completed = true;
+                setStatus(payload.message);
+                pushToast(payload.message, "error");
+              }
+            } catch {
+              // malformed SSE line, skip
+            }
+          }
+        }
+      } catch (error) {
+        if (abortController.signal.aborted) {
+          return;
+        }
+        const message = error instanceof Error ? error.message : "Failed to generate";
+        setStatus(message);
+        pushToast(message, "error");
+      } finally {
+        streamAbortRef.current = null;
+        setIsGenerating(false);
+      }
+    }, [
     autoGenerateImages,
+    clearClarification,
     format,
     generateAndInsertImages,
     generateMode,
     provider,
     pushToast,
+    isGenerationClarificationResponse,
+    applyClarification,
     refreshSessionDetails,
     selectedPostId,
     selectedSession?.title,
@@ -598,6 +694,14 @@ export function useWorkspaceController() {
     tone,
     userInstruction
   ]);
+
+  const retryAfterClarification = useCallback(
+    async (clarificationDraftAnswers?: GenerationClarificationAnswer[]): Promise<void> => {
+      const context = buildRetryClarificationContext(clarificationDraftAnswers);
+      await onGenerate(true, context);
+    },
+    [buildRetryClarificationContext, onGenerate]
+  );
 
   const onSavePost = useCallback(async (): Promise<void> => {
     if (!selectedSessionId || !selectedPostId) {
@@ -728,6 +832,8 @@ export function useWorkspaceController() {
     notionMonths,
     status,
     genPanelOpen,
+    clarification,
+    clarificationAnswers,
     navItems,
     selectedSession,
     PERIOD_OPTIONS,
@@ -769,6 +875,9 @@ export function useWorkspaceController() {
     onDeleteSession,
     onUpdateConfig,
     onGenerate,
+    onRetryAfterClarification: retryAfterClarification,
+    onClarificationAnswerChange,
+    onClearClarification: clearClarification,
     onSavePost,
     onExportMarkdown,
     onLoadRevision,
