@@ -96,8 +96,16 @@ body {
   transition: background-color var(--duration-fast), color var(--duration-fast), border-color var(--duration-fast);
 }
 
-.menuItem:hover:not(:disabled) {
+.menuItem:hover:not(:disabled):not(.active) {
   background: #ffffffed;
+}
+
+.menuItem.active:hover:not(:disabled) {
+  background: linear-gradient(130deg, var(--accent), var(--accent-2));
+  color: #fff;
+  filter: brightness(1.1);
+  transform: none;
+  box-shadow: none;
 }
 
 .menuIcon {
