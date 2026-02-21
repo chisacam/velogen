@@ -5,6 +5,10 @@ export function WorkspaceSidebar({
   navItems,
   sessionSources,
   posts,
+  generatedPost,
+  selectedPostId,
+  revisions,
+  onLoadRevision,
   selectedSession,
   statusText,
   setPanel
@@ -49,6 +53,42 @@ export function WorkspaceSidebar({
         )}
         <strong>Generated Posts</strong>
         <p>{posts.length}</p>
+
+        <strong>Selected Draft</strong>
+        <p className="mutedSmall">{generatedPost?.title ?? (selectedPostId || "No draft selected")}</p>
+
+        <strong>Generation Context</strong>
+        {generatedPost?.generationMeta ? (
+          <div className="sideContextBlock">
+            <p><span>Provider</span><span>{generatedPost.generationMeta.provider}</span></p>
+            <p><span>Tone</span><span>{generatedPost.generationMeta.tone ?? "(none)"}</span></p>
+            <p><span>Format</span><span>{generatedPost.generationMeta.format ?? "(none)"}</span></p>
+            <p><span>Refine</span><span>{generatedPost.generationMeta.refinePostId ?? "new draft"}</span></p>
+            <p><span>Sources</span><span>{generatedPost.generationMeta.sources.length}</span></p>
+          </div>
+        ) : (
+          <p className="mutedSmall">No saved generation context</p>
+        )}
+
+        <strong>Revision History</strong>
+        {revisions.length > 0 ? (
+          <ul className="sideRevisionList">
+            {revisions.map((revision) => (
+              <li key={revision.id}>
+                <div>
+                  <span>v{revision.version}</span>
+                  <span>{revision.source}</span>
+                </div>
+                <small>{new Date(revision.createdAt).toLocaleString()}</small>
+                <button type="button" className="tinyButton secondary" onClick={() => void onLoadRevision(revision.id)}>
+                  Load
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mutedSmall">No revisions yet</p>
+        )}
       </div>
     </aside>
   );

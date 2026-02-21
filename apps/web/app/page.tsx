@@ -22,6 +22,10 @@ export default function HomePage() {
         navItems={controller.navItems}
         sessionSources={controller.sessionSources}
         posts={controller.posts}
+        generatedPost={controller.generatedPost}
+        selectedPostId={controller.selectedPostId}
+        revisions={controller.revisions}
+        onLoadRevision={controller.onLoadRevision}
         selectedSession={controller.selectedSession}
         statusText={controller.status}
         setPanel={controller.setPanel}
@@ -95,8 +99,16 @@ export default function HomePage() {
             setPostBodyDraft={controller.setPostBodyDraft}
             flashHeading={controller.flashHeading}
             flashCitation={controller.flashCitation}
-            revisions={controller.revisions}
-            onLoadRevision={controller.onLoadRevision}
+            clarification={controller.clarification}
+            clarificationAnswers={controller.clarificationAnswers}
+            clarificationConversation={controller.clarificationConversation}
+            onClarificationAnswerChange={controller.onClarificationAnswerChange}
+            onRetryAfterClarification={controller.onRetryAfterClarification}
+            onClearClarification={controller.onClearClarification}
+            tone={controller.tone}
+            setTone={controller.setTone}
+            format={controller.format}
+            setFormat={controller.setFormat}
           />
         ) : null}
 
@@ -121,16 +133,10 @@ export default function HomePage() {
           generatedPost={controller.generatedPost}
           selectedPostId={controller.selectedPostId}
           postBodyDraft={controller.postBodyDraft}
-          clarification={controller.clarification}
-          clarificationAnswers={controller.clarificationAnswers}
-          clarificationConversation={controller.clarificationConversation}
-          onClarificationAnswerChange={controller.onClarificationAnswerChange}
           tone={controller.tone}
           setTone={controller.setTone}
           format={controller.format}
           setFormat={controller.setFormat}
-          onRetryAfterClarification={controller.onRetryAfterClarification}
-          onClearClarification={controller.onClearClarification}
         />
       </section>
     </main>

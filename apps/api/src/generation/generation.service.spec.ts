@@ -184,7 +184,7 @@ describe("GenerationService retrospective prompt", () => {
     await service.generateFromSession("s1", "claude", "회고형", "마크다운");
 
     expect(runner.lastPrompt).toContain("[KEY EVENTS INPUT]");
-    expect(runner.lastPrompt).toContain("[THEME INPUT]");
+    expect(runner.lastPrompt).toContain("[THEMATIC INSIGHTS INPUT]");
     expect(runner.lastPrompt).toContain("[EVIDENCE INPUT]");
     expect(runner.lastPrompt).toContain("C1");
     expect(runner.lastPrompt).toContain("https://github.com/acme/velogen/commit/abc123");

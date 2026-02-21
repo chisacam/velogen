@@ -73,13 +73,20 @@ interface ToastMessage {
   kind: ToastKind;
 }
 
-interface GenerationConversationTurn {
+interface AgentConversationTurn {
   id: string;
-  role: "agent" | "user";
+  role: "agent";
   message: string;
-  questions?: GenerationClarificationQuestion[];
-  answers?: GenerationClarificationAnswer[];
+  questions: GenerationClarificationQuestion[];
 }
+
+interface UserConversationTurn {
+  id: string;
+  role: "user";
+  answers: GenerationClarificationAnswer[];
+}
+
+type GenerationConversationTurn = AgentConversationTurn | UserConversationTurn;
 
 export type {
   EditorMode,

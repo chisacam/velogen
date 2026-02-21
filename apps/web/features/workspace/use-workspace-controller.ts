@@ -34,6 +34,8 @@ const NAV_ITEMS: WorkspaceNavItem[] = [
   { key: "posts", icon: "P", label: "Posts" },
 ];
 
+const CLARIFICATION_CONVERSATION_STORAGE_KEY = "velogen:clarification-conversations:v1";
+
 export type WorkspaceController = ReturnType<typeof useWorkspaceController>;
 
 export function useWorkspaceController() {
@@ -57,6 +59,7 @@ export function useWorkspaceController() {
   const [clarification, setClarification] = useState<GenerationClarificationResponse | null>(null);
   const [clarificationAnswers, setClarificationAnswers] = useState<GenerationClarificationAnswer[]>([]);
   const [clarificationConversation, setClarificationConversation] = useState<GenerationConversationTurn[]>([]);
+  const [clarificationConversationBySession, setClarificationConversationBySession] = useState<Record<string, GenerationConversationTurn[]>>({});
   const [revisions, setRevisions] = useState<PostRevision[]>([]);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [sessionTitle, setSessionTitle] = useState("Weekly Engineering Digest");
@@ -80,6 +83,7 @@ export function useWorkspaceController() {
   const streamAbortRef = useRef<AbortController | null>(null);
   const previousHeadingCountRef = useRef(0);
   const previousCitationCountRef = useRef(0);
+  const previousConversationSessionIdRef = useRef("");
 
   const selectedSession = useMemo(
     () => sessions.find((item) => item.id === selectedSessionId) ?? null,
@@ -95,6 +99,155 @@ export function useWorkspaceController() {
       setToasts((current) => current.filter((toast) => toast.id !== id));
     }, 3200);
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    try {
+      const raw = window.localStorage.getItem(CLARIFICATION_CONVERSATION_STORAGE_KEY);
+      if (!raw) {
+        return;
+      }
+
+      const parsed = JSON.parse(raw) as unknown;
+      if (!parsed || typeof parsed !== "object") {
+        return;
+      }
+
+      const normalized: Record<string, GenerationConversationTurn[]> = {};
+      for (const [sessionId, turns] of Object.entries(parsed as Record<string, unknown>)) {
+        if (!Array.isArray(turns)) {
+          continue;
+        }
+
+        const validTurns = turns
+          .map((turn) => {
+            if (!turn || typeof turn !== "object") {
+              return null;
+            }
+
+            const candidate = turn as Record<string, unknown>;
+            const id = typeof candidate.id === "string" ? candidate.id : "";
+            const role = candidate.role;
+
+            if (!id || (role !== "agent" && role !== "user")) {
+              return null;
+            }
+
+            if (role === "agent") {
+              const message = typeof candidate.message === "string" ? candidate.message : "";
+              const questions = Array.isArray(candidate.questions) ? candidate.questions : [];
+              const normalizedQuestions = questions
+                .map((question) => {
+                  if (!question || typeof question !== "object") {
+                    return null;
+                  }
+                  const item = question as Record<string, unknown>;
+                  const questionId = typeof item.id === "string" ? item.id : "";
+                  const questionText = typeof item.question === "string" ? item.question : "";
+                  const rationale = typeof item.rationale === "string" ? item.rationale : undefined;
+                  if (!questionId || !questionText) {
+                    return null;
+                  }
+                  return {
+                    id: questionId,
+                    question: questionText,
+                    ...(rationale ? { rationale } : {})
+                  };
+                })
+                .filter((question): question is { id: string; question: string; rationale?: string } => question !== null);
+
+              return {
+                id,
+                role,
+                message,
+                questions: normalizedQuestions
+              } satisfies GenerationConversationTurn;
+            }
+
+            const answers = Array.isArray(candidate.answers) ? candidate.answers : [];
+            const normalizedAnswers = answers
+              .map((answer) => {
+                if (!answer || typeof answer !== "object") {
+                  return null;
+                }
+                const item = answer as Record<string, unknown>;
+                const questionId = typeof item.questionId === "string" ? item.questionId : "";
+                const question = typeof item.question === "string" ? item.question : "";
+                const answerText = typeof item.answer === "string" ? item.answer : "";
+                if (!questionId || !question || !answerText) {
+                  return null;
+                }
+                return {
+                  questionId,
+                  question,
+                  answer: answerText
+                };
+              })
+              .filter((answer): answer is GenerationClarificationAnswer => answer !== null);
+
+            return {
+              id,
+              role,
+              answers: normalizedAnswers
+            } satisfies GenerationConversationTurn;
+          })
+          .filter((turn): turn is GenerationConversationTurn => turn !== null);
+
+        if (validTurns.length > 0) {
+          normalized[sessionId] = validTurns;
+        }
+      }
+
+      setClarificationConversationBySession(normalized);
+    } catch {
+      // ignore malformed local cache
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    try {
+      window.localStorage.setItem(
+        CLARIFICATION_CONVERSATION_STORAGE_KEY,
+        JSON.stringify(clarificationConversationBySession)
+      );
+    } catch {
+      // ignore storage write failures
+    }
+  }, [clarificationConversationBySession]);
+
+  const appendConversationTurn = useCallback((turn: GenerationConversationTurn): void => {
+    if (!selectedSessionId) {
+      return;
+    }
+
+    setClarificationConversationBySession((current) => ({
+      ...current,
+      [selectedSessionId]: [...(current[selectedSessionId] ?? []), turn]
+    }));
+  }, [selectedSessionId]);
+
+  const clearConversationForCurrentSession = useCallback((): void => {
+    if (!selectedSessionId) {
+      return;
+    }
+
+    setClarificationConversationBySession((current) => {
+      if (!(selectedSessionId in current)) {
+        return current;
+      }
+      return {
+        ...current,
+        [selectedSessionId]: []
+      };
+    });
+  }, [selectedSessionId]);
 
   const insertImagesIntoMarkdown = useCallback(
     (body: string, images: Array<{ sectionTitle: string; mimeType: string; base64: string }>): string => {
@@ -204,6 +357,10 @@ export function useWorkspaceController() {
     if (!selectedSessionId) {
       setSessionSources([]);
       setPosts([]);
+      setClarification(null);
+      setClarificationAnswers([]);
+      setClarificationConversation([]);
+      previousConversationSessionIdRef.current = "";
       return;
     }
 
@@ -215,6 +372,22 @@ export function useWorkspaceController() {
       }
     })();
   }, [refreshSessionDetails, selectedSessionId]);
+
+  useEffect(() => {
+    if (!selectedSessionId) {
+      return;
+    }
+
+    const sessionChanged = previousConversationSessionIdRef.current !== selectedSessionId;
+    previousConversationSessionIdRef.current = selectedSessionId;
+
+    if (sessionChanged) {
+      setClarification(null);
+      setClarificationAnswers([]);
+    }
+
+    setClarificationConversation(clarificationConversationBySession[selectedSessionId] ?? []);
+  }, [clarificationConversationBySession, selectedSessionId]);
 
   useEffect(() => {
     if (!selectedSessionId || !selectedPostId) {
@@ -519,20 +692,18 @@ export function useWorkspaceController() {
 
       setClarification(response);
       setClarificationAnswers(normalizeClarificationAnswers(response.context?.answers ?? []));
-      setClarificationConversation((previous) => [
-        ...previous,
-        {
-          id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
-          role: "agent",
-          message: response.message,
-          questions: response.clarifyingQuestions ?? []
-        }
-      ]);
+      appendConversationTurn({
+        id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        role: "agent",
+        message: response.message,
+        questions: response.clarifyingQuestions ?? []
+      });
       setStatus(response.message);
       pushToast(response.message, "info");
       setIsGenerating(false);
     },
     [
+      appendConversationTurn,
       format,
       normalizeClarificationAnswers,
       pushToast,
@@ -547,7 +718,8 @@ export function useWorkspaceController() {
     setClarification(null);
     setClarificationAnswers([]);
     setClarificationConversation([]);
-  }, []);
+    clearConversationForCurrentSession();
+  }, [clearConversationForCurrentSession]);
 
   const onGenerate = useCallback(
     async (
@@ -571,7 +743,6 @@ export function useWorkspaceController() {
       if (!clarificationContext) {
         setClarification(null);
         setClarificationAnswers([]);
-        setClarificationConversation([]);
       }
       setSelectedPostId("");
       setPostStatusDraft("draft");
@@ -653,6 +824,7 @@ export function useWorkspaceController() {
                   applyClarification(post);
                 } else {
                   setClarification(null);
+                  setClarificationAnswers([]);
                   setGeneratedPost(post);
                   setSelectedPostId(post.id);
                   setPostTitleDraft(post.title);
@@ -690,46 +862,38 @@ export function useWorkspaceController() {
         setIsGenerating(false);
       }
     }, [
-    autoGenerateImages,
-    clearClarification,
-    format,
-    generateAndInsertImages,
-    generateMode,
-    provider,
-    pushToast,
-    isGenerationClarificationResponse,
-    applyClarification,
-    refreshSessionDetails,
-    selectedPostId,
-    selectedSession?.title,
-    selectedSessionId,
-    setPanel,
-    tone,
-    userInstruction
-  ]);
+      autoGenerateImages,
+      format,
+      generateAndInsertImages,
+      generateMode,
+      provider,
+      pushToast,
+      isGenerationClarificationResponse,
+      applyClarification,
+      refreshSessionDetails,
+      selectedPostId,
+      selectedSession?.title,
+      selectedSessionId,
+      setPanel,
+      tone,
+      userInstruction
+    ]);
 
   const retryAfterClarification = useCallback(
     async (clarificationDraftAnswers?: GenerationClarificationAnswer[]): Promise<void> => {
       const submittedAnswers = normalizeClarificationAnswers(clarificationDraftAnswers ?? clarificationAnswers);
       if (submittedAnswers.length > 0) {
-        const summary = submittedAnswers
-          .map((answer) => `${answer.question}\n${answer.answer}`)
-          .join("\n\n");
-        setClarificationConversation((previous) => [
-          ...previous,
-          {
-            id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
-            role: "user",
-            message: summary,
-            answers: submittedAnswers
-          }
-        ]);
+        appendConversationTurn({
+          id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+          role: "user",
+          answers: submittedAnswers
+        });
       }
 
       const context = buildRetryClarificationContext(submittedAnswers);
       await onGenerate(true, context);
     },
-    [buildRetryClarificationContext, clarificationAnswers, normalizeClarificationAnswers, onGenerate]
+    [appendConversationTurn, buildRetryClarificationContext, clarificationAnswers, normalizeClarificationAnswers, onGenerate]
   );
 
   const onSavePost = useCallback(async (): Promise<void> => {

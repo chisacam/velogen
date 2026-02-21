@@ -16,6 +16,7 @@
   --duration-fast: 0.18s;
   --duration-mid: 0.28s;
   --shadow-sm: 0 2px 6px #08222b16;
+  --editor-pane-height: clamp(420px, 58vh, 760px);
   --bg-0: #f4f7f4;
   --bg-1: #e2eceb;
   --bg-2: #e8e3d9;
@@ -137,10 +138,72 @@ body {
   border-top: 1px solid #2f505924;
   padding-top: var(--space-3);
   color: var(--muted);
+  display: grid;
+  gap: 8px;
 }
 
 .sideMeta p {
   margin: 4px 0 10px;
+}
+
+.sideContextBlock {
+  display: grid;
+  gap: 4px;
+}
+
+.sideContextBlock p {
+  margin: 0;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.82rem;
+}
+
+.sideContextBlock span:first-child {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.sideContextBlock span:last-child {
+  color: var(--ink);
+  text-align: right;
+}
+
+.sideRevisionList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.sideRevisionList li {
+  border: 1px solid #2f505924;
+  border-radius: var(--radius-sm);
+  background: #ffffffcc;
+  padding: 8px;
+  display: grid;
+  gap: 4px;
+}
+
+.sideRevisionList li div {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.78rem;
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.sideRevisionList li small {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.sideRevisionList .tinyButton {
+  margin-left: 0;
+  justify-self: end;
+  padding: 4px 8px;
 }
 
 /* ─── Workspace ─── */
@@ -486,6 +549,7 @@ button.secondary:hover:not(:disabled) {
 .mdPane {
   display: grid;
   gap: var(--space-3);
+  align-items: start;
 }
 
 .mdPane.mode-split {
@@ -510,6 +574,22 @@ button.secondary:hover:not(:disabled) {
   padding: 12px;
   background: #fff;
   overflow: auto;
+}
+
+.editorPaneConstrained .markdown-editor,
+.editorPaneConstrained .markdown-viewer {
+  height: var(--editor-pane-height);
+  max-height: var(--editor-pane-height);
+}
+
+.editorPaneConstrained .markdown-editor {
+  resize: none;
+  overflow: auto;
+}
+
+.editorEmptyHint {
+  margin: 0;
+  color: var(--muted);
 }
 
 .markdown-viewer h1,
@@ -539,6 +619,112 @@ button.secondary:hover:not(:disabled) {
 
 .markdown-viewer.flash-citation .md-citation {
   animation: pulseCitation 0.8s ease-out;
+}
+
+.conversationPanel {
+  border: 1px solid #2f505924;
+  background: #f8fbfa;
+  border-radius: var(--radius-lg);
+  padding: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.conversationHeaderRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.conversationHeaderRow h3 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.conversationLog {
+  max-height: 260px;
+  overflow: auto;
+  display: grid;
+  gap: 8px;
+  padding-right: 2px;
+}
+
+.conversationTurn {
+  border-radius: var(--radius-md);
+  border: 1px solid #2f505924;
+  background: #fff;
+  padding: 8px 10px;
+  display: grid;
+  gap: 6px;
+}
+
+.conversationTurn.agent {
+  border-color: #c4aa7c;
+  background: #fff7e7;
+}
+
+.conversationTurn.user {
+  border-color: #86a097;
+  background: #ecf8f2;
+}
+
+.conversationRole {
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #6f5628;
+}
+
+.conversationTurn.user .conversationRole {
+  color: #2e5d51;
+}
+
+.conversationMessage {
+  margin: 0;
+  font-size: 0.84rem;
+  color: #3e3118;
+  line-height: 1.45;
+}
+
+.conversationQuestionList,
+.conversationAnswerList {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 4px;
+}
+
+.conversationAnswerList li p {
+  margin: 2px 0 0;
+  white-space: pre-wrap;
+  color: #1f3f36;
+}
+
+.conversationComposer {
+  border-top: 1px solid #2f505924;
+  padding-top: 10px;
+  display: grid;
+  gap: 10px;
+}
+
+.conversationComposerMessage {
+  margin: 0;
+  font-size: 0.84rem;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.conversationQuestionFields,
+.conversationMissingFields {
+  display: grid;
+  gap: 8px;
+}
+
+.conversationActions {
+  display: flex;
+  justify-content: flex-end;
 }
 
 .revisionPanel {
@@ -795,10 +981,29 @@ button.secondary:hover:not(:disabled) {
   gap: var(--space-4);
 }
 
+.genPanelHint {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
 .genPanelRow {
   display: flex;
   gap: var(--space-4);
   align-items: center;
+}
+
+.genPanelRow.inputsRow {
+  align-items: flex-start;
+}
+
+.generationFieldWrap {
+  display: grid;
+  gap: 6px;
+  flex: 1;
+  min-width: 200px;
+  margin-bottom: 0;
 }
 
 .genPanelRow .instructionModeRow {
@@ -1184,7 +1389,9 @@ pre {
   }
 
   .sideMeta {
-    display: none;
+    display: grid;
+    max-height: 38vh;
+    overflow: auto;
   }
 
   .toastStack {
@@ -1196,6 +1403,12 @@ pre {
 
   .genPanelExpanded {
     width: 95vw;
+  }
+
+  .editorPaneConstrained .markdown-editor,
+  .editorPaneConstrained .markdown-viewer {
+    height: 52vh;
+    max-height: 52vh;
   }
 }
 
