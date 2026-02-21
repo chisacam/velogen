@@ -16,7 +16,8 @@
   --duration-fast: 0.18s;
   --duration-mid: 0.28s;
   --shadow-sm: 0 2px 6px #08222b16;
-  --editor-pane-height: clamp(420px, 58vh, 760px);
+  --editor-pane-height: clamp(420px, 60vh, 760px);
+  --editor-pane-height-expanded: clamp(560px, 80vh, 920px);
   --bg-0: #f4f7f4;
   --bg-1: #e2eceb;
   --bg-2: #e8e3d9;
@@ -137,21 +138,53 @@ body {
 
 .sideMeta {
   border-top: 1px solid #2f505924;
-  padding-top: var(--space-3);
+  padding-top: 10px;
   color: var(--muted);
   display: grid;
-  gap: 6px;
-}
-
-.sideMeta p {
-  margin: 2px 0 6px;
+  gap: 5px;
 }
 
 .sideMeta strong {
-  font-size: 0.8rem;
+  font-size: 0.74rem;
   letter-spacing: 0.03em;
   text-transform: uppercase;
   color: #3f595f;
+}
+
+.sideMetaSection {
+  display: grid;
+  gap: 3px;
+  padding-bottom: 4px;
+  border-bottom: 1px dashed #2f50591f;
+}
+
+.sideMetaSection:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.sideMetaValue {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--ink);
+  line-height: 1.35;
+}
+
+.sideMetaMuted {
+  margin: 0;
+  font-size: 0.76rem;
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.sideStatsRow {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 8px;
+}
+
+.sideStatsRow>div {
+  display: grid;
+  gap: 3px;
 }
 
 .sideContextBlock {
@@ -164,7 +197,7 @@ body {
   display: flex;
   justify-content: space-between;
   gap: 8px;
-  font-size: 0.82rem;
+  font-size: 0.76rem;
 }
 
 .sideContextBlock span:first-child {
@@ -182,36 +215,37 @@ body {
   margin: 0;
   padding: 0;
   display: grid;
-  gap: 6px;
+  gap: 4px;
 }
 
 .sideRevisionList li {
   border: 1px solid #2f505924;
-  border-radius: var(--radius-sm);
+  border-radius: 7px;
   background: #ffffffcc;
-  padding: 6px;
+  padding: 4px 5px;
   display: grid;
-  gap: 3px;
+  gap: 2px;
 }
 
 .sideRevisionList li div {
   display: flex;
   justify-content: space-between;
-  gap: 8px;
-  font-size: 0.74rem;
+  gap: 6px;
+  font-size: 0.7rem;
   color: var(--ink);
   font-weight: 700;
 }
 
 .sideRevisionList li small {
   color: var(--muted);
-  font-size: 0.68rem;
+  font-size: 0.64rem;
 }
 
 .sideRevisionList .tinyButton {
   margin-left: 0;
   justify-self: end;
-  padding: 3px 7px;
+  padding: 2px 6px;
+  font-size: 0.68rem;
 }
 
 /* ─── Workspace ─── */
@@ -588,6 +622,12 @@ button.secondary:hover:not(:disabled) {
 .editorPaneConstrained .markdown-viewer {
   height: var(--editor-pane-height);
   max-height: var(--editor-pane-height);
+}
+
+.editorPaneConstrained.expanded .markdown-editor,
+.editorPaneConstrained.expanded .markdown-viewer {
+  height: var(--editor-pane-height-expanded);
+  max-height: var(--editor-pane-height-expanded);
 }
 
 .editorPaneConstrained .markdown-editor {
@@ -1439,9 +1479,16 @@ pre {
     height: 52vh;
     max-height: 52vh;
   }
+
+  .editorPaneConstrained.expanded .markdown-editor,
+  .editorPaneConstrained.expanded .markdown-viewer {
+    height: 60vh;
+    max-height: 60vh;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
+
   *,
   *::before,
   *::after {
@@ -1461,17 +1508,17 @@ pre {
 
 .sideSourceList {
   list-style: none;
-  margin: 4px 0 10px;
+  margin: 2px 0 4px;
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
 }
 
 .sideSourceList li {
-  font-size: 0.9rem;
+  font-size: 0.8rem;
   color: var(--ink);
-  padding: 2px 0;
+  padding: 1px 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1485,10 +1532,4 @@ pre {
   color: var(--accent);
   font-size: 1.2em;
   line-height: 1;
-}
-
-.mutedSmall {
-  font-size: 0.9rem;
-  color: var(--muted);
-  margin: 4px 0 10px;
 }

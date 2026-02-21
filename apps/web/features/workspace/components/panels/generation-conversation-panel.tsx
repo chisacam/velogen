@@ -16,6 +16,7 @@ type GenerationConversationPanelProps = {
   setTone: (tone: string) => void;
   format: string;
   setFormat: (format: string) => void;
+  onOpenStateChange?: (isOpen: boolean) => void;
 };
 
 export function GenerationConversationPanel({
@@ -28,8 +29,10 @@ export function GenerationConversationPanel({
   tone,
   setTone,
   format,
-  setFormat
+  setFormat,
+  onOpenStateChange
 }: GenerationConversationPanelProps) {
+  const hasPanelContent = Boolean(clarification) || clarificationConversation.length > 0;
   const [isOpen, setIsOpen] = useState<boolean>(Boolean(clarification));
   const [draftAnswers, setDraftAnswers] = useState<Record<string, string>>({});
   const composingByQuestionIdRef = useRef<Record<string, boolean>>({});
@@ -39,6 +42,16 @@ export function GenerationConversationPanel({
       setIsOpen(true);
     }
   }, [clarification]);
+
+  useEffect(() => {
+    onOpenStateChange?.(isOpen);
+  }, [isOpen, onOpenStateChange]);
+
+  useEffect(() => {
+    if (!hasPanelContent) {
+      onOpenStateChange?.(false);
+    }
+  }, [hasPanelContent, onOpenStateChange]);
 
   useEffect(() => {
     setDraftAnswers((previous) => {
@@ -60,7 +73,7 @@ export function GenerationConversationPanel({
     });
   }, [clarificationAnswers]);
 
-  if (!clarification && clarificationConversation.length === 0) {
+  if (!hasPanelContent) {
     return null;
   }
 

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { MarkdownEditor } from "../../../../components/markdown-editor";
 import { MarkdownViewer } from "../../../../components/markdown-viewer";
 import { type EditorPanelProps } from "./panel-types";
@@ -24,9 +24,23 @@ export function EditorPanel({
   format,
   setFormat
 }: EditorPanelProps) {
+  const hasConversationPanel = Boolean(clarification) || clarificationConversation.length > 0;
+  const [isConversationOpen, setIsConversationOpen] = useState<boolean>(Boolean(clarification));
+
   const editorRef = useRef<HTMLTextAreaElement | null>(null);
   const viewerRef = useRef<HTMLDivElement | null>(null);
   const syncingFromRef = useRef<"editor" | "viewer" | null>(null);
+
+  useEffect(() => {
+    if (!hasConversationPanel) {
+      setIsConversationOpen(false);
+      return;
+    }
+
+    if (clarification) {
+      setIsConversationOpen(true);
+    }
+  }, [clarification, hasConversationPanel]);
 
   const syncScroll = (source: HTMLElement, target: HTMLElement, from: "editor" | "viewer"): void => {
     if (syncingFromRef.current && syncingFromRef.current !== from) {
@@ -76,7 +90,9 @@ export function EditorPanel({
             </div>
           </div>
 
-          <div className={`mdPane mode-${editorMode} editorPaneConstrained`}>
+          <div
+            className={`mdPane mode-${editorMode} editorPaneConstrained ${!hasConversationPanel || !isConversationOpen ? "expanded" : ""}`}
+          >
             {editorMode !== "preview" ? (
               <MarkdownEditor
                 editorRef={editorRef}
@@ -125,6 +141,7 @@ export function EditorPanel({
         setTone={setTone}
         format={format}
         setFormat={setFormat}
+        onOpenStateChange={setIsConversationOpen}
       />
     </div>
   );
