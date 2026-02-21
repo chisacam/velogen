@@ -308,8 +308,8 @@ button:focus-visible {
 }
 
 button:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px #007a7440;
+  transform: none;
+  box-shadow: 0 4px 10px #007a7428;
 }
 
 button:disabled {
@@ -585,7 +585,7 @@ button.secondary:hover:not(:disabled) {
 }
 
 .genPanelCollapsed:hover {
-  transform: scale(1.08);
+  transform: scale(1.02);
   box-shadow: 0 12px 36px #007a7460;
 }
 
@@ -605,8 +605,8 @@ button.secondary:hover:not(:disabled) {
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   overflow: hidden;
-  transition: opacity 0.3s cubic-bezier(0.22, 1, 0.36, 1), transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
-  /* The button is 52px wide and 52px high, placed at bottom-right. 
+  transition: opacity 0.32s cubic-bezier(0.16, 1, 0.3, 1), transform 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+  /* The button is 52px wide and 52px high, placed at bottom-right.
      Its center is 26px from the right and 26px from the bottom. */
   transform-origin: calc(100% - 26px) calc(100% - 26px);
   grid-area: 1 / 1;
@@ -621,7 +621,7 @@ button.secondary:hover:not(:disabled) {
 
 .genPanelFloating.closed .genPanelExpanded {
   opacity: 0;
-  transform: scale(0.08);
+  transform: translateY(16px) scale(0.96);
   pointer-events: none;
 }
 
