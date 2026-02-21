@@ -23,5 +23,6 @@ This repository helps developers write technical blog posts from work history (c
 - Code review: `./rules/code-review.md`
 - Blog input analysis: `./rules/blog-input-analysis.md`
 - Blog writing: `./rules/blog.md`
+- Blog prompt rule: `./rules/blog-prompt.md`
 - Blog review: `./rules/blog-review.md`
 - Review templates: `./review-guide/code.md`, `./review-guide/blog.md`

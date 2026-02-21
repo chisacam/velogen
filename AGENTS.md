@@ -25,5 +25,6 @@
 - 코드 리뷰: `./rules/code-review.md`
 - 블로그 입력 분석: `./rules/blog-input-analysis.md`
 - 블로그 작성: `./rules/blog.md`
+- 블로그 프롬프트 규칙: `./rules/blog-prompt.md`
 - 블로그 리뷰: `./rules/blog-review.md`
 - 리뷰 템플릿: `./review-guide/code.md`, `./review-guide/blog.md`
