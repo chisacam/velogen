@@ -1,5 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { spawn } from "node:child_process";
+import spawn from "cross-spawn";
 import { homedir } from "node:os";
 import type { AgentProvider } from "@velogen/shared";
 
@@ -169,6 +169,7 @@ export class AgentRunnerService {
     onChunk?: (chunk: string) => void
   ): Promise<string> {
     return new Promise((resolve, reject) => {
+      // cross-spawn: Windows의 .cmd 래퍼를 shell 없이 자동 처리
       const child = spawn(command, args, {
         stdio: ["pipe", "pipe", "pipe"],
         cwd: homedir(),
@@ -188,11 +189,11 @@ export class AgentRunnerService {
 
       // 5분 타임아웃
       const timer = setTimeout(() => {
-        child.kill("SIGTERM");
+        child.kill();
         settle(() => reject(new Error("Agent process timed out (5 min)")));
       }, 300_000);
 
-      child.stdout.on("data", (chunk: Buffer) => {
+      child.stdout!.on("data", (chunk: Buffer) => {
         const text = chunk.toString("utf8");
         stdout += text;
         if (onChunk && text.length > 0) {
@@ -200,7 +201,7 @@ export class AgentRunnerService {
         }
       });
 
-      child.stderr.on("data", (chunk: Buffer) => {
+      child.stderr!.on("data", (chunk: Buffer) => {
         stderr += chunk.toString("utf8");
       });
 
@@ -231,8 +232,8 @@ export class AgentRunnerService {
 
       // stdin으로 프롬프트 전달 후 닫기
       try {
-        child.stdin.write(input, "utf8");
-        child.stdin.end();
+        child.stdin!.write(input, "utf8");
+        child.stdin!.end();
       } catch (writeErr) {
         child.kill();
         settle(() => reject(writeErr));
