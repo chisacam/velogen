@@ -34,7 +34,35 @@ const NAV_ITEMS: WorkspaceNavItem[] = [
   { key: "posts", icon: "P", label: "Posts" },
 ];
 
-const CLARIFICATION_CONVERSATION_STORAGE_KEY = "velogen:clarification-conversations:v1";
+const CLARIFICATION_CONVERSATION_STORAGE_KEY = "velogen:clarification-conversations:v2";
+
+function buildConversationThreadKey(
+  sessionId: string,
+  postId: string | null,
+  revisionId: string | null,
+  mode: GenerationMode
+): string {
+  if (!sessionId) {
+    return "";
+  }
+
+  if (mode === "new" || !postId) {
+    return `${sessionId}:draft:new`;
+  }
+
+  return `${sessionId}:post:${postId}:revision:${revisionId ?? "head"}`;
+}
+
+function mergeConversationTurns(
+  existing: GenerationConversationTurn[],
+  incoming: GenerationConversationTurn[]
+): GenerationConversationTurn[] {
+  const byId = new Map<string, GenerationConversationTurn>();
+  for (const turn of [...existing, ...incoming]) {
+    byId.set(turn.id, turn);
+  }
+  return Array.from(byId.values());
+}
 
 export type WorkspaceController = ReturnType<typeof useWorkspaceController>;
 
@@ -46,6 +74,7 @@ export function useWorkspaceController() {
   const [posts, setPosts] = useState<PostSummary[]>([]);
   const [generatedPost, setGeneratedPost] = useState<GeneratedPost | null>(null);
   const [selectedPostId, setSelectedPostId] = useState("");
+  const [activeRevisionId, setActiveRevisionId] = useState<string | null>(null);
   const [editorMode, setEditorMode] = useState<EditorMode>("split");
   const [activePanel, setActivePanel] = useState<WorkspacePanel>("session");
   const [isGenerating, setIsGenerating] = useState(false);
@@ -59,7 +88,8 @@ export function useWorkspaceController() {
   const [clarification, setClarification] = useState<GenerationClarificationResponse | null>(null);
   const [clarificationAnswers, setClarificationAnswers] = useState<GenerationClarificationAnswer[]>([]);
   const [clarificationConversation, setClarificationConversation] = useState<GenerationConversationTurn[]>([]);
-  const [clarificationConversationBySession, setClarificationConversationBySession] = useState<Record<string, GenerationConversationTurn[]>>({});
+  const [clarificationConversationByThread, setClarificationConversationByThread] = useState<Record<string, GenerationConversationTurn[]>>({});
+  const [activeConversationThreadKey, setActiveConversationThreadKey] = useState("");
   const [revisions, setRevisions] = useState<PostRevision[]>([]);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [sessionTitle, setSessionTitle] = useState("Weekly Engineering Digest");
@@ -83,7 +113,8 @@ export function useWorkspaceController() {
   const streamAbortRef = useRef<AbortController | null>(null);
   const previousHeadingCountRef = useRef(0);
   const previousCitationCountRef = useRef(0);
-  const previousConversationSessionIdRef = useRef("");
+  const previousConversationThreadKeyRef = useRef("");
+  const generationConversationThreadKeyRef = useRef("");
 
   const selectedSession = useMemo(
     () => sessions.find((item) => item.id === selectedSessionId) ?? null,
@@ -117,7 +148,7 @@ export function useWorkspaceController() {
       }
 
       const normalized: Record<string, GenerationConversationTurn[]> = {};
-      for (const [sessionId, turns] of Object.entries(parsed as Record<string, unknown>)) {
+      for (const [threadKey, turns] of Object.entries(parsed as Record<string, unknown>)) {
         if (!Array.isArray(turns)) {
           continue;
         }
@@ -197,11 +228,11 @@ export function useWorkspaceController() {
           .filter((turn): turn is GenerationConversationTurn => turn !== null);
 
         if (validTurns.length > 0) {
-          normalized[sessionId] = validTurns;
+          normalized[threadKey] = validTurns;
         }
       }
 
-      setClarificationConversationBySession(normalized);
+      setClarificationConversationByThread(normalized);
     } catch {
       // ignore malformed local cache
     }
@@ -215,39 +246,40 @@ export function useWorkspaceController() {
     try {
       window.localStorage.setItem(
         CLARIFICATION_CONVERSATION_STORAGE_KEY,
-        JSON.stringify(clarificationConversationBySession)
+        JSON.stringify(clarificationConversationByThread)
       );
     } catch {
       // ignore storage write failures
     }
-  }, [clarificationConversationBySession]);
+  }, [clarificationConversationByThread]);
 
   const appendConversationTurn = useCallback((turn: GenerationConversationTurn): void => {
-    if (!selectedSessionId) {
+    const threadKey = generationConversationThreadKeyRef.current || activeConversationThreadKey;
+    if (!threadKey) {
       return;
     }
 
-    setClarificationConversationBySession((current) => ({
+    setClarificationConversationByThread((current) => ({
       ...current,
-      [selectedSessionId]: [...(current[selectedSessionId] ?? []), turn]
+      [threadKey]: [...(current[threadKey] ?? []), turn]
     }));
-  }, [selectedSessionId]);
+  }, [activeConversationThreadKey]);
 
-  const clearConversationForCurrentSession = useCallback((): void => {
-    if (!selectedSessionId) {
+  const clearConversationForCurrentThread = useCallback((): void => {
+    if (!activeConversationThreadKey) {
       return;
     }
 
-    setClarificationConversationBySession((current) => {
-      if (!(selectedSessionId in current)) {
+    setClarificationConversationByThread((current) => {
+      if (!(activeConversationThreadKey in current)) {
         return current;
       }
       return {
         ...current,
-        [selectedSessionId]: []
+        [activeConversationThreadKey]: []
       };
     });
-  }, [selectedSessionId]);
+  }, [activeConversationThreadKey]);
 
   const insertImagesIntoMarkdown = useCallback(
     (body: string, images: Array<{ sectionTitle: string; mimeType: string; base64: string }>): string => {
@@ -340,6 +372,7 @@ export function useWorkspaceController() {
     setPostBodyDraft(post.body);
     setPostStatusDraft(post.status);
     setSelectedPostId(post.id);
+    setActiveRevisionId(null);
     setRevisions(revisionsData);
   }, []);
 
@@ -360,7 +393,10 @@ export function useWorkspaceController() {
       setClarification(null);
       setClarificationAnswers([]);
       setClarificationConversation([]);
-      previousConversationSessionIdRef.current = "";
+      setActiveConversationThreadKey("");
+      previousConversationThreadKeyRef.current = "";
+      generationConversationThreadKeyRef.current = "";
+      setActiveRevisionId(null);
       return;
     }
 
@@ -374,20 +410,31 @@ export function useWorkspaceController() {
   }, [refreshSessionDetails, selectedSessionId]);
 
   useEffect(() => {
-    if (!selectedSessionId) {
+    const nextThreadKey = buildConversationThreadKey(
+      selectedSessionId,
+      selectedPostId || null,
+      activeRevisionId,
+      generateMode
+    );
+    setActiveConversationThreadKey(nextThreadKey);
+  }, [activeRevisionId, generateMode, selectedPostId, selectedSessionId]);
+
+  useEffect(() => {
+    if (!activeConversationThreadKey) {
+      setClarificationConversation([]);
       return;
     }
 
-    const sessionChanged = previousConversationSessionIdRef.current !== selectedSessionId;
-    previousConversationSessionIdRef.current = selectedSessionId;
+    const threadChanged = previousConversationThreadKeyRef.current !== activeConversationThreadKey;
+    previousConversationThreadKeyRef.current = activeConversationThreadKey;
 
-    if (sessionChanged) {
+    if (threadChanged) {
       setClarification(null);
       setClarificationAnswers([]);
     }
 
-    setClarificationConversation(clarificationConversationBySession[selectedSessionId] ?? []);
-  }, [clarificationConversationBySession, selectedSessionId]);
+    setClarificationConversation(clarificationConversationByThread[activeConversationThreadKey] ?? []);
+  }, [activeConversationThreadKey, clarificationConversationByThread]);
 
   useEffect(() => {
     if (!selectedSessionId || !selectedPostId) {
@@ -718,8 +765,8 @@ export function useWorkspaceController() {
     setClarification(null);
     setClarificationAnswers([]);
     setClarificationConversation([]);
-    clearConversationForCurrentSession();
-  }, [clearConversationForCurrentSession]);
+    clearConversationForCurrentThread();
+  }, [clearConversationForCurrentThread]);
 
   const onGenerate = useCallback(
     async (
@@ -737,17 +784,20 @@ export function useWorkspaceController() {
         streamAbortRef.current = null;
       }
 
+      const fallbackThreadKey = buildConversationThreadKey(
+        selectedSessionId,
+        selectedPostId || null,
+        activeRevisionId,
+        generateMode
+      );
+      generationConversationThreadKeyRef.current = activeConversationThreadKey || fallbackThreadKey;
+
       setPanel("editor");
       setIsGenerating(true);
-      setGeneratedPost(null);
       if (!clarificationContext) {
         setClarification(null);
         setClarificationAnswers([]);
       }
-      setSelectedPostId("");
-      setPostStatusDraft("draft");
-      setPostTitleDraft(selectedSession?.title ?? "Streaming Draft");
-      setPostBodyDraft("");
       setStatus("Generating blog post...");
       pushToast("Generation started", "info");
 
@@ -782,6 +832,7 @@ export function useWorkspaceController() {
         const decoder = new TextDecoder();
         let buffer = "";
         let completed = false;
+        let receivedChunk = false;
 
         while (!completed) {
           const { done, value } = await reader.read();
@@ -815,7 +866,17 @@ export function useWorkspaceController() {
               if (payload.type === "status") {
                 setStatus(payload.message);
               } else if (payload.type === "chunk") {
-                setPostBodyDraft((current) => current + payload.chunk);
+                if (!receivedChunk) {
+                  receivedChunk = true;
+                  setGeneratedPost(null);
+                  setSelectedPostId("");
+                  setActiveRevisionId(null);
+                  setPostStatusDraft("draft");
+                  setPostTitleDraft(selectedSession?.title ?? "Streaming Draft");
+                  setPostBodyDraft(payload.chunk);
+                } else {
+                  setPostBodyDraft((current) => current + payload.chunk);
+                }
               } else if (payload.type === "complete") {
                 completed = true;
                 const post = payload.post;
@@ -827,9 +888,28 @@ export function useWorkspaceController() {
                   setClarificationAnswers([]);
                   setGeneratedPost(post);
                   setSelectedPostId(post.id);
+                  setActiveRevisionId(null);
                   setPostTitleDraft(post.title);
                   setPostBodyDraft(post.body);
                   setPostStatusDraft(post.status);
+
+                  const sourceThreadKey = generationConversationThreadKeyRef.current;
+                  const targetThreadKey = buildConversationThreadKey(selectedSessionId, post.id, null, "refine");
+                  generationConversationThreadKeyRef.current = targetThreadKey;
+                  if (sourceThreadKey && sourceThreadKey !== targetThreadKey) {
+                    setClarificationConversationByThread((current) => {
+                      const sourceTurns = current[sourceThreadKey] ?? [];
+                      if (sourceTurns.length === 0) {
+                        return current;
+                      }
+                      const targetTurns = current[targetThreadKey] ?? [];
+                      return {
+                        ...current,
+                        [targetThreadKey]: mergeConversationTurns(targetTurns, sourceTurns)
+                      };
+                    });
+                  }
+
                   setStatus("Blog post generated");
                   pushToast("Blog post generated", "success");
                   void refreshSessionDetails(selectedSessionId);
@@ -862,6 +942,8 @@ export function useWorkspaceController() {
         setIsGenerating(false);
       }
     }, [
+      activeConversationThreadKey,
+      activeRevisionId,
       autoGenerateImages,
       format,
       generateAndInsertImages,
@@ -966,6 +1048,7 @@ export function useWorkspaceController() {
         setPostTitleDraft(revision.title);
         setPostBodyDraft(revision.body);
         setPostStatusDraft(revision.status);
+        setActiveRevisionId(revision.id);
         setPanel("editor");
         setStatus(`Loaded revision v${revision.version}. Save to apply rollback.`);
         pushToast(`Loaded revision v${revision.version}`, "info");
@@ -978,6 +1061,7 @@ export function useWorkspaceController() {
 
   const selectPost = useCallback(
     (postId: string) => {
+      setActiveRevisionId(null);
       setSelectedPostId(postId);
       setPanel("editor");
     },

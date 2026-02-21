@@ -71,7 +71,7 @@ body {
   overflow: auto;
   display: grid;
   grid-template-rows: auto auto 1fr;
-  gap: var(--space-4);
+  gap: var(--space-3);
 }
 
 .brandBlock h1 {
@@ -82,7 +82,7 @@ body {
 
 .menuList {
   display: grid;
-  gap: var(--space-2);
+  gap: 6px;
 }
 
 .menuItem {
@@ -91,6 +91,7 @@ body {
   gap: 10px;
   width: 100%;
   text-align: left;
+  padding: 8px 10px;
   border: 1px solid #2f505924;
   background: #ffffffd4;
   color: var(--ink);
@@ -139,11 +140,18 @@ body {
   padding-top: var(--space-3);
   color: var(--muted);
   display: grid;
-  gap: 8px;
+  gap: 6px;
 }
 
 .sideMeta p {
-  margin: 4px 0 10px;
+  margin: 2px 0 6px;
+}
+
+.sideMeta strong {
+  font-size: 0.8rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #3f595f;
 }
 
 .sideContextBlock {
@@ -174,36 +182,36 @@ body {
   margin: 0;
   padding: 0;
   display: grid;
-  gap: 8px;
+  gap: 6px;
 }
 
 .sideRevisionList li {
   border: 1px solid #2f505924;
   border-radius: var(--radius-sm);
   background: #ffffffcc;
-  padding: 8px;
+  padding: 6px;
   display: grid;
-  gap: 4px;
+  gap: 3px;
 }
 
 .sideRevisionList li div {
   display: flex;
   justify-content: space-between;
   gap: 8px;
-  font-size: 0.78rem;
+  font-size: 0.74rem;
   color: var(--ink);
   font-weight: 700;
 }
 
 .sideRevisionList li small {
   color: var(--muted);
-  font-size: 0.72rem;
+  font-size: 0.68rem;
 }
 
 .sideRevisionList .tinyButton {
   margin-left: 0;
   justify-self: end;
-  padding: 4px 8px;
+  padding: 3px 7px;
 }
 
 /* ─── Workspace ─── */
@@ -628,6 +636,7 @@ button.secondary:hover:not(:disabled) {
   padding: 12px;
   display: grid;
   gap: 10px;
+  margin-top: 4px;
 }
 
 .conversationHeaderRow {
@@ -637,9 +646,29 @@ button.secondary:hover:not(:disabled) {
   gap: 8px;
 }
 
-.conversationHeaderRow h3 {
-  margin: 0;
-  font-size: 0.95rem;
+.conversationToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #fff;
+  border: 1px solid #2f505924;
+  color: var(--ink);
+  padding: 6px 10px;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.conversationToggle:hover:not(:disabled) {
+  background: #f2fbf9;
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: none;
+}
+
+.conversationMeta {
+  font-size: 0.75rem;
+  color: var(--muted);
+  font-weight: 600;
 }
 
 .conversationLog {
