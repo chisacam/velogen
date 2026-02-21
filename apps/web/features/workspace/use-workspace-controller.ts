@@ -1,0 +1,778 @@
+"use client";
+
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { AgentProvider, SourceSummary } from "@velogen/shared";
+import { API_BASE, apiRequest } from "../../lib/api-client";
+import { PERIOD_OPTIONS } from "./constants";
+import type {
+  EditorMode,
+  GenerationMode,
+  GeneratedPost,
+  PostRevision,
+  PostRevisionDetail,
+  PostSummary,
+  SessionSource,
+  SessionSummary,
+  ToastKind,
+  ToastMessage,
+  WorkspaceNavItem,
+  WorkspacePanel
+} from "./types";
+import { buildMarkdownFileName, extractTitleFromMarkdown, formatSourceDisplayValue } from "./utils";
+
+const NAV_ITEMS: WorkspaceNavItem[] = [
+  { key: "session", icon: "S", label: "Session" },
+  { key: "sources", icon: "R", label: "Sources" },
+  { key: "editor", icon: "E", label: "Editor" },
+  { key: "posts", icon: "P", label: "Posts" },
+];
+
+export type WorkspaceController = ReturnType<typeof useWorkspaceController>;
+
+export function useWorkspaceController() {
+  const [sources, setSources] = useState<SourceSummary[]>([]);
+  const [sessions, setSessions] = useState<SessionSummary[]>([]);
+  const [selectedSessionId, setSelectedSessionId] = useState("");
+  const [sessionSources, setSessionSources] = useState<SessionSource[]>([]);
+  const [posts, setPosts] = useState<PostSummary[]>([]);
+  const [generatedPost, setGeneratedPost] = useState<GeneratedPost | null>(null);
+  const [selectedPostId, setSelectedPostId] = useState("");
+  const [editorMode, setEditorMode] = useState<EditorMode>("split");
+  const [activePanel, setActivePanel] = useState<WorkspacePanel>("session");
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [isGeneratingImages, setIsGeneratingImages] = useState(false);
+  const [autoGenerateImages, setAutoGenerateImages] = useState(false);
+  const [flashHeading, setFlashHeading] = useState(false);
+  const [flashCitation, setFlashCitation] = useState(false);
+  const [postTitleDraft, setPostTitleDraft] = useState("");
+  const [postBodyDraft, setPostBodyDraft] = useState("");
+  const [postStatusDraft, setPostStatusDraft] = useState<"draft" | "published">("draft");
+  const [revisions, setRevisions] = useState<PostRevision[]>([]);
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const [sessionTitle, setSessionTitle] = useState("Weekly Engineering Digest");
+  const [tone, setTone] = useState("");
+  const [format, setFormat] = useState("");
+  const [provider, setProvider] = useState<AgentProvider>("mock");
+  const [userInstruction, setUserInstruction] = useState("");
+  const [generateMode, setGenerateMode] = useState<GenerationMode>("new");
+  const [repoName, setRepoName] = useState("My Repo");
+  const [repoPath, setRepoPath] = useState("");
+  const [repoUrl, setRepoUrl] = useState("");
+  const [repoMonths, setRepoMonths] = useState("3");
+  const [repoCommitters, setRepoCommitters] = useState("");
+  const [notionName, setNotionName] = useState("Product Notes");
+  const [notionPageId, setNotionPageId] = useState("");
+  const [notionToken, setNotionToken] = useState("");
+  const [notionMonths, setNotionMonths] = useState("3");
+  const [status, setStatus] = useState("Ready");
+  const [genPanelOpen, setGenPanelOpen] = useState(true);
+
+  const streamRef = useRef<EventSource | null>(null);
+  const streamParseErrorNotifiedRef = useRef(false);
+  const previousHeadingCountRef = useRef(0);
+  const previousCitationCountRef = useRef(0);
+
+  const selectedSession = useMemo(
+    () => sessions.find((item) => item.id === selectedSessionId) ?? null,
+    [sessions, selectedSessionId]
+  );
+
+  const navItems = useMemo<WorkspaceNavItem[]>(() => NAV_ITEMS.slice(), []);
+
+  const pushToast = useCallback((message: string, kind: ToastKind = "info") => {
+    const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    setToasts((current) => [...current, { id, message, kind }]);
+    setTimeout(() => {
+      setToasts((current) => current.filter((toast) => toast.id !== id));
+    }, 3200);
+  }, []);
+
+  const insertImagesIntoMarkdown = useCallback(
+    (body: string, images: Array<{ sectionTitle: string; mimeType: string; base64: string }>): string => {
+      let result = body;
+      for (const img of images) {
+        const escapedTitle = img.sectionTitle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const regex = new RegExp(`(^##\\s+${escapedTitle}.*$)`, "m");
+        const dataUri = `data:${img.mimeType};base64,${img.base64}`;
+        const imgMarkdown = `\n\n![${img.sectionTitle}](${dataUri})\n`;
+        result = result.replace(regex, `$1${imgMarkdown}`);
+      }
+      return result;
+    },
+    []
+  );
+
+  const generateAndInsertImages = useCallback(
+    async (body: string): Promise<string> => {
+      setIsGeneratingImages(true);
+      setStatus("Generating section images...");
+      pushToast("Generating section images...", "info");
+      try {
+        const resp = await apiRequest<{ images: Array<{ sectionTitle: string; mimeType: string; base64: string }> }>(
+          "/generate-blog-images",
+          { method: "POST", body: JSON.stringify({ blogBody: body, maxImages: 3 }) }
+        );
+        if (resp.images.length > 0) {
+          const enriched = insertImagesIntoMarkdown(body, resp.images);
+          pushToast(`${resp.images.length} images generated`, "success");
+          return enriched;
+        }
+        pushToast("No images generated (check GEMINI_API_KEY)", "info");
+        return body;
+      } catch (error) {
+        pushToast(`Image generation failed: ${error instanceof Error ? error.message : "unknown error"}`, "error");
+        return body;
+      } finally {
+        setIsGeneratingImages(false);
+        setStatus("Ready");
+      }
+    },
+    [insertImagesIntoMarkdown, pushToast]
+  );
+
+  const setPanel = useCallback((panel: WorkspacePanel) => {
+    setActivePanel(panel);
+  }, []);
+
+  const refreshSources = useCallback(async (): Promise<void> => {
+    const data = await apiRequest<SourceSummary[]>("/sources");
+    setSources(data);
+  }, []);
+
+  const refreshSessions = useCallback(async (): Promise<void> => {
+    const data = await apiRequest<SessionSummary[]>("/sessions");
+    setSessions(data);
+    if (!selectedSessionId && data.length > 0) {
+      setSelectedSessionId(data[0].id);
+    }
+  }, [selectedSessionId]);
+
+  const refreshSessionDetails = useCallback(async (sessionId: string): Promise<void> => {
+    const [attachedSources, postList] = await Promise.all([
+      apiRequest<SessionSource[]>(`/sessions/${sessionId}/sources`),
+      apiRequest<PostSummary[]>(`/sessions/${sessionId}/posts`)
+    ]);
+    setSessionSources(attachedSources);
+    setPosts(postList);
+
+    if (postList.length > 0 && !selectedPostId) {
+      setSelectedPostId(postList[0].id);
+    }
+    if (postList.length === 0) {
+      setSelectedPostId("");
+      setGeneratedPost(null);
+      setPostTitleDraft("");
+      setPostBodyDraft("");
+      setPostStatusDraft("draft");
+      setRevisions([]);
+    }
+  }, [selectedPostId]);
+
+  const loadPost = useCallback(async (sessionId: string, postId: string): Promise<void> => {
+    const [post, revisionsData] = await Promise.all([
+      apiRequest<GeneratedPost>(`/sessions/${sessionId}/posts/${postId}`),
+      apiRequest<PostRevision[]>(`/sessions/${sessionId}/posts/${postId}/revisions`)
+    ]);
+    setGeneratedPost(post);
+    setPostTitleDraft(post.title);
+    setPostBodyDraft(post.body);
+    setPostStatusDraft(post.status);
+    setSelectedPostId(post.id);
+    setRevisions(revisionsData);
+  }, []);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        await Promise.all([refreshSources(), refreshSessions()]);
+      } catch (error) {
+        setStatus(error instanceof Error ? error.message : "Failed to initialize");
+      }
+    })();
+  }, [refreshSessions, refreshSources]);
+
+  useEffect(() => {
+    if (!selectedSessionId) {
+      setSessionSources([]);
+      setPosts([]);
+      return;
+    }
+
+    void (async () => {
+      try {
+        await refreshSessionDetails(selectedSessionId);
+      } catch (error) {
+        setStatus(error instanceof Error ? error.message : "Failed to refresh session details");
+      }
+    })();
+  }, [refreshSessionDetails, selectedSessionId]);
+
+  useEffect(() => {
+    if (!selectedSessionId || !selectedPostId) {
+      return;
+    }
+
+    void (async () => {
+      try {
+        await loadPost(selectedSessionId, selectedPostId);
+      } catch (error) {
+        setStatus(error instanceof Error ? error.message : "Failed to load post");
+      }
+    })();
+  }, [loadPost, selectedPostId, selectedSessionId]);
+
+  useEffect(() => {
+    if (!selectedSession) {
+      return;
+    }
+    setTone(selectedSession.tone ?? "");
+    setFormat(selectedSession.format ?? "");
+    setProvider(selectedSession.provider ?? "mock");
+  }, [selectedSession]);
+
+  useEffect(() => {
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.close();
+        streamRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    const headingCount = (postBodyDraft.match(/^#{1,6}\s+/gm) ?? []).length;
+    const citationCount = (postBodyDraft.match(/\[C\d+\]/g) ?? []).length;
+
+    if (headingCount > previousHeadingCountRef.current) {
+      setFlashHeading(true);
+      setTimeout(() => setFlashHeading(false), 900);
+    }
+
+    if (citationCount > previousCitationCountRef.current) {
+      setFlashCitation(true);
+      setTimeout(() => setFlashCitation(false), 900);
+    }
+
+    previousHeadingCountRef.current = headingCount;
+    previousCitationCountRef.current = citationCount;
+  }, [postBodyDraft]);
+
+  useEffect(() => {
+    const extracted = extractTitleFromMarkdown(postBodyDraft);
+    if (isGenerating || !extracted) {
+      return;
+    }
+    setPostTitleDraft(extracted);
+  }, [isGenerating, postBodyDraft]);
+
+  const onCreateSession = useCallback(async (event: FormEvent<HTMLFormElement>): Promise<void> => {
+    event.preventDefault();
+    setStatus("Creating session...");
+    try {
+      const created = await apiRequest<{ id: string; title: string }>("/sessions", {
+        method: "POST",
+        body: JSON.stringify({ title: sessionTitle })
+      });
+      await refreshSessions();
+      setSelectedSessionId(created.id);
+      setPanel("session");
+      setStatus("Session created");
+      pushToast("Session created", "success");
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Failed to create session");
+    }
+  }, [pushToast, refreshSessions, sessionTitle, setPanel]);
+
+  const onCreateRepoSource = useCallback(async (event: FormEvent<HTMLFormElement>): Promise<void> => {
+    event.preventDefault();
+    setStatus("Creating repo source...");
+    try {
+      await apiRequest<SourceSummary>("/sources", {
+        method: "POST",
+        body: JSON.stringify({
+          name: repoName,
+          type: "repo",
+          repoConfig: {
+            repoPath: repoPath || undefined,
+            repoUrl: repoUrl || undefined,
+            sinceMonths: Number.parseInt(repoMonths, 10) || 3,
+            committers: repoCommitters
+              .split(",")
+              .map((item) => item.trim())
+              .filter((item) => item.length > 0)
+          }
+        })
+      });
+      await refreshSources();
+      setStatus("Repo source created");
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Failed to create repo source");
+    }
+  }, [refreshSources, repoCommitters, repoMonths, repoName, repoPath, repoUrl]);
+
+  const onCreateNotionSource = useCallback(async (event: FormEvent<HTMLFormElement>): Promise<void> => {
+    event.preventDefault();
+    setStatus("Creating notion source...");
+    try {
+      await apiRequest<SourceSummary>("/sources", {
+        method: "POST",
+        body: JSON.stringify({
+          name: notionName,
+          type: "notion",
+          notionConfig: {
+            pageId: notionPageId,
+            token: notionToken,
+            sinceMonths: Number.parseInt(notionMonths, 10) || 3
+          }
+        })
+      });
+      await refreshSources();
+      setStatus("Notion source created");
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Failed to create notion source");
+    }
+  }, [notionMonths, notionName, notionPageId, notionToken, refreshSources]);
+
+  const onAttachSource = useCallback(
+    async (sourceId: string): Promise<void> => {
+      if (!selectedSessionId) {
+        setStatus("Create or select a session first");
+        return;
+      }
+
+      setStatus("Attaching source...");
+      try {
+        await apiRequest<{ ok: true }>(`/sessions/${selectedSessionId}/sources/${sourceId}`, { method: "POST", body: "{}" });
+        await refreshSessionDetails(selectedSessionId);
+        setStatus("Source attached");
+      } catch (error) {
+        setStatus(error instanceof Error ? error.message : "Failed to attach source");
+      }
+    },
+    [refreshSessionDetails, selectedSessionId]
+  );
+
+  const onDetachSource = useCallback(
+    async (sourceId: string): Promise<void> => {
+      if (!selectedSessionId) {
+        return;
+      }
+
+      setStatus("Detaching source...");
+      try {
+        await apiRequest<{ ok: true }>(`/sessions/${selectedSessionId}/sources/${sourceId}`, { method: "DELETE" });
+        await refreshSessionDetails(selectedSessionId);
+        setStatus("Source removed from session");
+      } catch (error) {
+        setStatus(error instanceof Error ? error.message : "Failed to detach source");
+      }
+    },
+    [refreshSessionDetails, selectedSessionId]
+  );
+
+  const onDeleteSource = useCallback(async (sourceId: string): Promise<void> => {
+    setStatus("Deleting source...");
+    try {
+      await apiRequest<{ ok: true }>(`/sources/${sourceId}`, { method: "DELETE" });
+      await refreshSources();
+      if (selectedSessionId) {
+        await refreshSessionDetails(selectedSessionId);
+      }
+      setStatus("Source deleted");
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Failed to delete source");
+    }
+  }, [refreshSessionDetails, refreshSources, selectedSessionId]);
+
+  const onSyncSource = useCallback(async (sourceId: string): Promise<void> => {
+    if (!selectedSessionId) {
+      setStatus("Select a session first");
+      return;
+    }
+    setStatus("Syncing source...");
+    try {
+      const result = await apiRequest<{ ingested: number }>(`/sessions/${selectedSessionId}/sources/${sourceId}/sync`, {
+        method: "POST",
+        body: "{}"
+      });
+      setStatus(`Sync complete — ${result.ingested} items ingested`);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Failed to sync source");
+    }
+  }, [selectedSessionId]);
+
+  const onDeleteSession = useCallback(async (): Promise<void> => {
+    if (!selectedSessionId) {
+      setStatus("Select a session first");
+      return;
+    }
+    setStatus("Deleting session...");
+    try {
+      await apiRequest<{ ok: true }>(`/sessions/${selectedSessionId}`, { method: "DELETE" });
+      setSelectedSessionId("");
+      setSessionSources([]);
+      setPosts([]);
+      setGeneratedPost(null);
+      setSelectedPostId("");
+      await refreshSessions();
+      setStatus("Session deleted");
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Failed to delete session");
+    }
+  }, [refreshSessions, selectedSessionId]);
+
+  const onUpdateConfig = useCallback(async (): Promise<void> => {
+    if (!selectedSessionId) {
+      setStatus("Create or select a session first");
+      return;
+    }
+
+    setStatus("Updating generation config...");
+    try {
+      await apiRequest<{ ok: true }>(`/sessions/${selectedSessionId}/config`, {
+        method: "PATCH",
+        body: JSON.stringify({ tone: tone || undefined, format: format || undefined, provider })
+      });
+      await refreshSessions();
+      setStatus("Generation config updated");
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Failed to update session config");
+    }
+  }, [format, provider, refreshSessions, selectedSessionId, tone]);
+
+  const onGenerate = useCallback(async (): Promise<void> => {
+    if (!selectedSessionId) {
+      setStatus("Create or select a session first");
+      pushToast("Create or select a session first", "error");
+      return;
+    }
+
+    if (streamRef.current) {
+      streamRef.current.close();
+      streamRef.current = null;
+    }
+
+    setPanel("editor");
+    setIsGenerating(true);
+    setGeneratedPost(null);
+    setSelectedPostId("");
+    setPostStatusDraft("draft");
+    setPostTitleDraft(selectedSession?.title ?? "Streaming Draft");
+    setPostBodyDraft("");
+    setStatus("Generating blog post...");
+    pushToast("Generation started", "info");
+
+    if (typeof window === "undefined" || !("EventSource" in window)) {
+      try {
+        const post = await apiRequest<GeneratedPost>(`/sessions/${selectedSessionId}/generate`, {
+          method: "POST",
+          body: JSON.stringify({
+            provider,
+            tone: tone || undefined,
+            format: format || undefined,
+            userInstruction: userInstruction || undefined,
+            refinePostId: generateMode === "refine" && selectedPostId ? selectedPostId : undefined,
+            generateImage: autoGenerateImages
+          })
+        });
+        setGeneratedPost(post);
+        setSelectedPostId(post.id);
+        setPostTitleDraft(post.title);
+        setPostBodyDraft(post.body);
+        setPostStatusDraft(post.status);
+        await refreshSessionDetails(selectedSessionId);
+        setStatus("Blog post generated");
+        pushToast("Blog post generated", "success");
+        setIsGenerating(false);
+        if (autoGenerateImages) {
+          const enriched = await generateAndInsertImages(post.body);
+          setPostBodyDraft(enriched);
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Failed to generate";
+        setStatus(message);
+        pushToast(message, "error");
+        setIsGenerating(false);
+      }
+      return;
+    }
+
+    const params = new URLSearchParams({ provider, generateImage: String(autoGenerateImages) });
+    if (tone.trim().length > 0) {
+      params.set("tone", tone);
+    }
+    if (format.trim().length > 0) {
+      params.set("format", format);
+    }
+    if (userInstruction.trim().length > 0) {
+      params.set("userInstruction", userInstruction);
+    }
+    if (generateMode === "refine" && selectedPostId) {
+      params.set("refinePostId", selectedPostId);
+    }
+
+    let completed = false;
+    const stream = new EventSource(`${API_BASE}/sessions/${selectedSessionId}/generate/stream?${params.toString()}`);
+    streamRef.current = stream;
+    streamParseErrorNotifiedRef.current = false;
+
+    stream.onmessage = (event) => {
+      try {
+        const payload = JSON.parse(event.data) as
+          | { type: "status"; message: string }
+          | { type: "chunk"; chunk: string }
+          | { type: "complete"; post: GeneratedPost }
+          | { type: "error"; message: string };
+
+        if (payload.type === "status") {
+          setStatus(payload.message);
+          return;
+        }
+
+        if (payload.type === "chunk") {
+          setPostBodyDraft((current) => current + payload.chunk);
+          return;
+        }
+
+        if (payload.type === "complete") {
+          completed = true;
+          stream.close();
+          streamRef.current = null;
+          setGeneratedPost(payload.post);
+          setSelectedPostId(payload.post.id);
+          setPostTitleDraft(payload.post.title);
+          setPostStatusDraft(payload.post.status);
+          setStatus("Blog post generated");
+          pushToast("Blog post generated", "success");
+          void refreshSessionDetails(selectedSessionId);
+          setIsGenerating(false);
+          if (autoGenerateImages) {
+            void (async () => {
+              const enriched = await generateAndInsertImages(payload.post.body);
+              setPostBodyDraft(enriched);
+            })();
+          }
+          return;
+        }
+
+        if (payload.type === "error") {
+          completed = true;
+          stream.close();
+          streamRef.current = null;
+          setStatus(payload.message);
+          pushToast(payload.message, "error");
+          setIsGenerating(false);
+        }
+      } catch {
+        if (!streamParseErrorNotifiedRef.current) {
+          streamParseErrorNotifiedRef.current = true;
+          setStatus("Received malformed stream payload");
+          pushToast("Received malformed stream payload", "error");
+        }
+      }
+    };
+
+    stream.onerror = () => {
+      if (completed) {
+        return;
+      }
+
+      stream.close();
+      streamRef.current = null;
+      setIsGenerating(false);
+      setStatus("Streaming disconnected");
+      pushToast("Streaming disconnected", "error");
+    };
+  }, [
+    autoGenerateImages,
+    format,
+    generateAndInsertImages,
+    generateMode,
+    provider,
+    pushToast,
+    refreshSessionDetails,
+    selectedPostId,
+    selectedSession?.title,
+    selectedSessionId,
+    setPanel,
+    tone,
+    userInstruction
+  ]);
+
+  const onSavePost = useCallback(async (): Promise<void> => {
+    if (!selectedSessionId || !selectedPostId) {
+      setStatus("Select a post first");
+      return;
+    }
+
+    setStatus("Saving markdown draft...");
+    try {
+      const updated = await apiRequest<GeneratedPost>(`/sessions/${selectedSessionId}/posts/${selectedPostId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ title: postTitleDraft, body: postBodyDraft, status: postStatusDraft })
+      });
+      setGeneratedPost(updated);
+      await refreshSessionDetails(selectedSessionId);
+      await loadPost(selectedSessionId, selectedPostId);
+      setPanel("editor");
+      setStatus("Draft saved");
+      pushToast("Draft saved", "success");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to save post";
+      setStatus(message);
+      pushToast(message, "error");
+    }
+  }, [
+    loadPost,
+    postBodyDraft,
+    postStatusDraft,
+    postTitleDraft,
+    pushToast,
+    refreshSessionDetails,
+    selectedPostId,
+    selectedSessionId,
+    setPanel
+  ]);
+
+  const onExportMarkdown = (): void => {
+    if (!postBodyDraft) {
+      pushToast("No content to export", "error");
+      return;
+    }
+
+    const title = postTitleDraft || "untitled";
+    const fileName = buildMarkdownFileName(title);
+    const blob = new Blob([postBodyDraft], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    pushToast(`Exported: ${fileName}`, "success");
+  };
+
+  const onLoadRevision = useCallback(
+    async (revisionId: string): Promise<void> => {
+      if (!selectedSessionId || !selectedPostId) {
+        setStatus("Select a post first");
+        return;
+      }
+
+      setStatus("Loading revision into editor...");
+      try {
+        const revision = await apiRequest<PostRevisionDetail>(
+          `/sessions/${selectedSessionId}/posts/${selectedPostId}/revisions/${revisionId}`
+        );
+        setPostTitleDraft(revision.title);
+        setPostBodyDraft(revision.body);
+        setPostStatusDraft(revision.status);
+        setPanel("editor");
+        setStatus(`Loaded revision v${revision.version}. Save to apply rollback.`);
+        pushToast(`Loaded revision v${revision.version}`, "info");
+      } catch (error) {
+        setStatus(error instanceof Error ? error.message : "Failed to load revision");
+      }
+    },
+    [selectedPostId, selectedSessionId, pushToast, setPanel]
+  );
+
+  const selectPost = useCallback(
+    (postId: string) => {
+      setSelectedPostId(postId);
+      setPanel("editor");
+    },
+    [setPanel]
+  );
+
+  const onFormatSourceDisplay = useCallback((source: SourceSummary): string => {
+    return formatSourceDisplayValue(source);
+  }, []);
+
+  return {
+    sources,
+    sessions,
+    selectedSessionId,
+    sessionSources,
+    posts,
+    generatedPost,
+    selectedPostId,
+    editorMode,
+    activePanel,
+    isGenerating,
+    isGeneratingImages,
+    autoGenerateImages,
+    flashHeading,
+    flashCitation,
+    postTitleDraft,
+    postBodyDraft,
+    postStatusDraft,
+    revisions,
+    toasts,
+    sessionTitle,
+    tone,
+    format,
+    provider,
+    userInstruction,
+    generateMode,
+    repoName,
+    repoPath,
+    repoUrl,
+    repoMonths,
+    repoCommitters,
+    notionName,
+    notionPageId,
+    notionToken,
+    notionMonths,
+    status,
+    genPanelOpen,
+    navItems,
+    selectedSession,
+    PERIOD_OPTIONS,
+
+    pushToast,
+    setPanel,
+    setEditorMode,
+    setActivePanel,
+    setAutoGenerateImages,
+    setSessionTitle,
+    setTone,
+    setFormat,
+    setProvider,
+    setUserInstruction,
+    setGenerateMode,
+    setPostStatusDraft,
+    setPostTitleDraft,
+    setPostBodyDraft,
+    setGeneratedPost,
+    setGenPanelOpen,
+    setSelectedSessionId,
+    setRepoName,
+    setRepoPath,
+    setRepoUrl,
+    setRepoMonths,
+    setRepoCommitters,
+    setNotionName,
+    setNotionPageId,
+    setNotionToken,
+    setNotionMonths,
+
+    onCreateSession,
+    onCreateRepoSource,
+    onCreateNotionSource,
+    onAttachSource,
+    onDetachSource,
+    onDeleteSource,
+    onSyncSource,
+    onDeleteSession,
+    onUpdateConfig,
+    onGenerate,
+    onSavePost,
+    onExportMarkdown,
+    onLoadRevision,
+    selectPost,
+    onFormatSourceDisplay
+  };
+}

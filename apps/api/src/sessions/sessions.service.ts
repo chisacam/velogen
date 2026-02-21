@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
-import { v4 as uuidv4 } from "uuid";
+import { randomUUID } from "node:crypto";
 import type { AgentProvider, CreateSessionDto, UpdateSessionConfigDto } from "@velogen/shared";
 import { DatabaseService } from "../database/database.service";
 import { GenerationService } from "../generation/generation.service";
@@ -31,7 +31,7 @@ export class SessionsService {
 
   createSession(payload: CreateSessionDto): { id: string; title: string; createdAt: string } {
     const now = new Date().toISOString();
-    const id = uuidv4();
+    const id = randomUUID();
 
     this.databaseService.connection
       .prepare("INSERT INTO sessions (id, title, provider, created_at, updated_at) VALUES (?, ?, ?, ?, ?)")
@@ -232,7 +232,7 @@ export class SessionsService {
       .prepare(
         "INSERT INTO blog_post_revisions (id, post_id, version, title, body, status, source, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
       )
-      .run(uuidv4(), postId, nextVersion, nextTitle, nextBody, nextStatus, "manual-edit", now);
+      .run(randomUUID(), postId, nextVersion, nextTitle, nextBody, nextStatus, "manual-edit", now);
 
     return this.getPost(sessionId, postId);
   }

@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { v4 as uuidv4 } from "uuid";
+import { randomUUID } from "node:crypto";
 import type { NotionSourceConfig, RepoSourceConfig } from "@velogen/shared";
 import { DatabaseService } from "../database/database.service";
 
@@ -62,7 +62,7 @@ export class ContentIngestionService {
     const tx = this.databaseService.connection.transaction((rows: IngestedItem[]) => {
       for (const item of rows) {
         stmt.run(
-          uuidv4(),
+          randomUUID(),
           source.id,
           item.externalId,
           item.kind,

@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
-import { v4 as uuidv4 } from "uuid";
+import { randomUUID } from "node:crypto";
 import type { CreateSourceDto, NotionSourceConfig, RepoSourceConfig, SourceSummary } from "@velogen/shared";
 import { DatabaseService } from "../database/database.service";
 
@@ -50,7 +50,7 @@ export class SourcesService {
     }
 
     const config = this.normalizeSourceConfig(payload);
-    const id = uuidv4();
+    const id = randomUUID();
     const now = new Date().toISOString();
     this.databaseService.connection
       .prepare(
