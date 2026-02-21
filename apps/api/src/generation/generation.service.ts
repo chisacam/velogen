@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
-import { v4 as uuidv4 } from "uuid";
+import { randomUUID } from "node:crypto";
 import type { AgentProvider, BlogPostResult, GenerationMeta } from "@velogen/shared";
 import { DatabaseService } from "../database/database.service";
 import { AgentRunnerService } from "./agent-runner.service";
@@ -169,7 +169,7 @@ export class GenerationService {
     generatedBody: string,
     meta?: GenerationMeta
   ): BlogPostResult {
-    const postId = uuidv4();
+    const postId = randomUUID();
     const createdAt = new Date().toISOString();
     const status = "draft";
     const metaJson = meta ? JSON.stringify(meta) : null;
@@ -184,7 +184,7 @@ export class GenerationService {
       .prepare(
         "INSERT INTO blog_post_revisions (id, post_id, version, title, body, status, source, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
       )
-      .run(uuidv4(), postId, 1, title, generatedBody, status, "generated", createdAt);
+      .run(randomUUID(), postId, 1, title, generatedBody, status, "generated", createdAt);
 
     return {
       id: postId,
