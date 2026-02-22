@@ -3,6 +3,7 @@ import { MarkdownEditor } from "../../../../components/markdown-editor";
 import { MarkdownViewer } from "../../../../components/markdown-viewer";
 import { type EditorPanelProps } from "./panel-types";
 import { GenerationConversationPanel } from "./generation-conversation-panel";
+import { ReviewPanel } from "./review-panel";
 
 export function EditorPanel({
   generatedPost,
@@ -22,9 +23,17 @@ export function EditorPanel({
   tone,
   setTone,
   format,
-  setFormat
+  setFormat,
+  isReviewing,
+  reviewResult,
+  onReviewPost,
+  onApplySuggestion,
+  setReviewResult
 }: EditorPanelProps) {
   const hasConversationPanel = Boolean(clarification) || clarificationConversation.length > 0;
+  const hasReviewPanel = isReviewing || Boolean(reviewResult);
+  const isRightPanelOpen = hasConversationPanel || hasReviewPanel;
+
   const [isConversationOpen, setIsConversationOpen] = useState<boolean>(Boolean(clarification));
 
   const editorRef = useRef<HTMLTextAreaElement | null>(null);
@@ -72,77 +81,105 @@ export function EditorPanel({
 
   return (
     <div className="workspaceBody card editorWorkspace">
-      {hasDraftContent ? (
-        <>
-          <div className="editorToolbar">
-            <div className="viewModeTabs">
-              {(["split", "edit", "preview"] as const).map((mode) => (
+      <div className="editorMainColumn">
+        {hasDraftContent ? (
+          <>
+            <div className="editorToolbar">
+              <div className="viewModeTabs">
+                {(["split", "edit", "preview"] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    className={`viewModeTab ${editorMode === mode ? "active" : ""}`}
+                    aria-pressed={editorMode === mode}
+                    onClick={() => setEditorMode(mode)}
+                  >
+                    {mode === "split" ? "Split" : mode === "edit" ? "Edit" : "Preview"}
+                  </button>
+                ))}
+              </div>
+
+              <div className="editorActions">
                 <button
-                  key={mode}
                   type="button"
-                  className={`viewModeTab ${editorMode === mode ? "active" : ""}`}
-                  aria-pressed={editorMode === mode}
-                  onClick={() => setEditorMode(mode)}
+                  className="secondary tinyButton"
+                  onClick={onReviewPost}
+                  disabled={isReviewing}
                 >
-                  {mode === "split" ? "Split" : mode === "edit" ? "Edit" : "Preview"}
+                  {isReviewing ? "리뷰 중..." : "Review Draft"}
                 </button>
-              ))}
+              </div>
             </div>
-          </div>
 
-          <div
-            className={`mdPane mode-${editorMode} editorPaneConstrained ${!hasConversationPanel || !isConversationOpen ? "expanded" : ""}`}
-          >
-            {editorMode !== "preview" ? (
-              <MarkdownEditor
-                editorRef={editorRef}
-                onScroll={(event) => {
-                  if (editorMode !== "split" || !viewerRef.current) {
-                    return;
-                  }
-                  syncScroll(event.currentTarget, viewerRef.current, "editor");
-                }}
-                value={postBodyDraft}
-                onChange={setPostBodyDraft}
-              />
-            ) : null}
-            {editorMode !== "edit" ? (
-              <MarkdownViewer
-                viewerRef={viewerRef}
-                onScroll={(event) => {
-                  if (editorMode !== "split" || !editorRef.current) {
-                    return;
-                  }
-                  syncScroll(event.currentTarget, editorRef.current, "viewer");
-                }}
-                content={postBodyDraft}
-                flashHeading={flashHeading}
-                flashCitation={flashCitation}
-              />
-            ) : null}
-          </div>
-        </>
-      ) : clarification ? (
-        <p className="editorEmptyHint">에이전트 질문에 답변한 뒤 계속 생성 버튼을 눌러 초안을 이어서 만드세요.</p>
-      ) : isGenerating ? (
-        <p className="editorEmptyHint">초안 생성을 준비 중입니다...</p>
-      ) : (
-        <p>생성된 글이 없습니다. 아래 ⚙ 버튼을 눌러 Generate Blog를 실행하거나 Posts에서 글을 선택하세요.</p>
+            <div
+              className={`mdPane mode-${editorMode} editorPaneConstrained ${!isRightPanelOpen ? "expanded" : ""}`}
+            >
+              {editorMode !== "preview" ? (
+                <MarkdownEditor
+                  editorRef={editorRef}
+                  onScroll={(event) => {
+                    if (editorMode !== "split" || !viewerRef.current) {
+                      return;
+                    }
+                    syncScroll(event.currentTarget, viewerRef.current, "editor");
+                  }}
+                  value={postBodyDraft}
+                  onChange={setPostBodyDraft}
+                />
+              ) : null}
+              {editorMode !== "edit" ? (
+                <MarkdownViewer
+                  viewerRef={viewerRef}
+                  onScroll={(event) => {
+                    if (editorMode !== "split" || !editorRef.current) {
+                      return;
+                    }
+                    syncScroll(event.currentTarget, editorRef.current, "viewer");
+                  }}
+                  content={postBodyDraft}
+                  flashHeading={flashHeading}
+                  flashCitation={flashCitation}
+                />
+              ) : null}
+            </div>
+          </>
+        ) : clarification ? (
+          <p className="editorEmptyHint">에이전트 질문에 답변한 뒤 계속 생성 버튼을 눌러 초안을 이어서 만드세요.</p>
+        ) : isGenerating ? (
+          <p className="editorEmptyHint">초안 생성을 준비 중입니다...</p>
+        ) : (
+          <p>생성된 글이 없습니다. 아래 ⚙ 버튼을 눌러 Generate Blog를 실행하거나 Posts에서 글을 선택하세요.</p>
+        )}
+      </div>
+
+      {isRightPanelOpen && (
+        <div className="editorRightSidebar">
+          {hasReviewPanel && (
+            <ReviewPanel
+              isReviewing={isReviewing}
+              reviewResult={reviewResult}
+              onApplySuggestion={onApplySuggestion}
+              onClose={() => setReviewResult(null)}
+              postBodyDraft={postBodyDraft}
+            />
+          )}
+          {hasConversationPanel && (
+            <GenerationConversationPanel
+              clarification={clarification}
+              clarificationAnswers={clarificationAnswers}
+              clarificationConversation={clarificationConversation}
+              onClarificationAnswerChange={onClarificationAnswerChange}
+              onRetryAfterClarification={onRetryAfterClarification}
+              onClearClarification={onClearClarification}
+              tone={tone}
+              setTone={setTone}
+              format={format}
+              setFormat={setFormat}
+              onOpenStateChange={setIsConversationOpen}
+            />
+          )}
+        </div>
       )}
-
-      <GenerationConversationPanel
-        clarification={clarification}
-        clarificationAnswers={clarificationAnswers}
-        clarificationConversation={clarificationConversation}
-        onClarificationAnswerChange={onClarificationAnswerChange}
-        onRetryAfterClarification={onRetryAfterClarification}
-        onClearClarification={onClearClarification}
-        tone={tone}
-        setTone={setTone}
-        format={format}
-        setFormat={setFormat}
-        onOpenStateChange={setIsConversationOpen}
-      />
     </div>
   );
 }
