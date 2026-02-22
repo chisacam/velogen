@@ -567,7 +567,12 @@ export class GenerationService {
       return null;
     }
 
-    return ["[USER CLARIFICATION INPUT]", answerLines, fallbackNotice]
+    return [
+      "[USER CLARIFICATION INPUT]",
+      "※ 주의: 아래 질의응답은 글을 작성하기 위한 '참고 정보'입니다. 질문과 답변 형태를 블로그 본문에 그대로 노출하지 말고, 자연스럽게 글의 내용으로 녹여내세요.",
+      answerLines,
+      fallbackNotice
+    ]
       .filter((line) => line.length > 0)
       .join("\n");
   }
@@ -651,11 +656,8 @@ export class GenerationService {
       ...(instructionBlock ? [instructionBlock] : []),
       ...(clarificationBlock ? [clarificationBlock] : []),
       ...basePrompt,
-      "[KEY EVENTS INPUT]",
       keyEvents,
-      "[THEMATIC INSIGHTS INPUT]",
       themeGroups,
-      "[EVIDENCE INPUT]",
       evidence,
     ].join("\n\n");
 

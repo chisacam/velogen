@@ -20,13 +20,11 @@ type PeriodOption = {
   value: string;
 };
 
-export type WorkspaceSidebarProps = {
+export type WorkspaceSidebarProps = GenerationPanelProps & {
   activePanel: WorkspacePanel;
   navItems: WorkspaceNavItem[];
   sessionSources: SessionSource[];
   posts: PostSummary[];
-  generatedPost: GeneratedPost | null;
-  selectedPostId: string;
   revisions: PostRevision[];
   onLoadRevision: (revisionId: string) => Promise<void>;
   selectedSession: SessionSummary | null;

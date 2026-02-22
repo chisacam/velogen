@@ -18,9 +18,6 @@
 1. `[EXISTING DRAFT — REFINE MODE]` (refinePostBody 존재 시)
 2. `[USER INSTRUCTION]` (userInstruction 존재 시)
 3. 기본 프롬프트 본문
-4. `[KEY EVENTS INPUT]`
-5. `[THEMATIC INSIGHTS INPUT]`
-6. `[EVIDENCE INPUT]`
 
 compact 모드일 때는 6의 자리에 `[COMPACT EVIDENCE INPUT]`을 사용한다.
 

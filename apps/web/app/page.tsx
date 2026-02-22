@@ -28,6 +28,26 @@ export default function HomePage() {
         onLoadRevision={controller.onLoadRevision}
         selectedSession={controller.selectedSession}
         setPanel={controller.setPanel}
+        genPanelOpen={controller.genPanelOpen}
+        setGenPanelOpen={controller.setGenPanelOpen}
+        generateMode={controller.generateMode}
+        setGenerateMode={controller.setGenerateMode}
+        postStatusDraft={controller.postStatusDraft}
+        setPostStatusDraft={controller.setPostStatusDraft}
+        autoGenerateImages={controller.autoGenerateImages}
+        setAutoGenerateImages={controller.setAutoGenerateImages}
+        isGenerating={controller.isGenerating}
+        isGeneratingImages={controller.isGeneratingImages}
+        onGenerate={controller.onGenerate}
+        onSavePost={controller.onSavePost}
+        onExportMarkdown={controller.onExportMarkdown}
+        userInstruction={controller.userInstruction}
+        setUserInstruction={controller.setUserInstruction}
+        postBodyDraft={controller.postBodyDraft}
+        tone={controller.tone}
+        setTone={controller.setTone}
+        format={controller.format}
+        setFormat={controller.setFormat}
       />
 
       <section className="workspace">
@@ -112,31 +132,6 @@ export default function HomePage() {
         ) : null}
 
         {controller.activePanel === "posts" ? <PostsPanel posts={controller.posts} selectPost={controller.selectPost} /> : null}
-
-        <FloatingGenerationPanel
-          genPanelOpen={controller.genPanelOpen}
-          setGenPanelOpen={controller.setGenPanelOpen}
-          generateMode={controller.generateMode}
-          setGenerateMode={controller.setGenerateMode}
-          postStatusDraft={controller.postStatusDraft}
-          setPostStatusDraft={controller.setPostStatusDraft}
-          autoGenerateImages={controller.autoGenerateImages}
-          setAutoGenerateImages={controller.setAutoGenerateImages}
-          isGenerating={controller.isGenerating}
-          isGeneratingImages={controller.isGeneratingImages}
-          onGenerate={controller.onGenerate}
-          onSavePost={controller.onSavePost}
-          onExportMarkdown={controller.onExportMarkdown}
-          userInstruction={controller.userInstruction}
-          setUserInstruction={controller.setUserInstruction}
-          generatedPost={controller.generatedPost}
-          selectedPostId={controller.selectedPostId}
-          postBodyDraft={controller.postBodyDraft}
-          tone={controller.tone}
-          setTone={controller.setTone}
-          format={controller.format}
-          setFormat={controller.setFormat}
-        />
       </section>
     </main>
   );

@@ -29,11 +29,14 @@ export function FloatingGenerationPanel({
       <button
         type="button"
         className={`genPanelCollapsed ${isGenerating || isGeneratingImages ? "generating" : ""}`}
-        aria-label="Open generation panel"
-        onClick={() => setGenPanelOpen(true)}
-        title="Open generation panel"
+        aria-label={genPanelOpen ? "Close generation panel" : "Open generation panel"}
+        onClick={() => setGenPanelOpen(!genPanelOpen)}
+        title="Toggle generation panel"
       >
-        {isGenerating || isGeneratingImages ? <div className="collapsedSpinner" /> : "⚙"}
+        <span className="genPanelBtnIcon">
+          {isGenerating || isGeneratingImages ? <div className="collapsedSpinner" /> : "⚙"}
+        </span>
+        <span className="genPanelBtnText">Generation Settings</span>
       </button>
 
       <div className="genPanelExpanded">
@@ -50,7 +53,7 @@ export function FloatingGenerationPanel({
         </div>
 
         <div className="genPanelBody">
-          <p className="genPanelHint">질문/답변 대화 로그는 Editor 패널 상단 Conversation에서 확인하고 답변할 수 있습니다.</p>
+          <p className="genPanelHint">질문/답변 대화 로그는 Editor 패널 하단 Conversation에서 확인하고 답변할 수 있습니다.</p>
 
           <div className="genPanelRow">
             <div className="instructionModeRow">
