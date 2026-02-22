@@ -1,24 +1,17 @@
-# velogen
+# Velogen
 
-Next.js + NestJS + SQLite 기반으로, 커밋 히스토리와 Notion 콘텐츠를 읽어 블로그 글을 생성하는 로컬 우선 프로젝트입니다.
+Velogen(벨로젠)은 개발자의 기여 이력(Commit History)과 작업 노트(Notion)를 바탕으로, 자동으로 기술 블로그 포스트 초안을 작성해 주는 AI 기반 로컬 우선(Local-first) 애플리케이션입니다.
+Next.js, NestJS, SQLite 환경을 기반으로 구축되었으며, 주요 AI 모델(Claude, Gemini 등)과 연동하여 사용자의 작업 맥락을 풍부하게 반영한 글을 생성합니다.
+단순한 텍스트 생성을 넘어, 세션 기반의 컨텍스트 관리, 실시간 마크다운 스트리밍, 그리고 생성된 초안의 버전 관리(Revision)까지 지원하여 기술 블로그 작성의 생산성을 향상시킵니다.
 
-## 핵심 기능
+## 주요 기능
 
-- Repo 소스 등록: 기간(기본 3개월), 커미터 필터(기본 전체) 기반 커밋 수집
-- Notion 소스 등록: 페이지 내용 수집, 기간(기본 3개월) 기반 필터
-- 세션 기반 작업: 소스를 세션에 붙였다/뗐다 하면서 생성 컨텍스트를 동적으로 조합
-- 블로그 생성: 연결된 모든 소스를 재수집 후 하나의 프롬프트로 합쳐 글 생성
-- 옵션 지정: 글 형식(format), 문체/톤(tone), 에이전트(provider)를 세션별로 저장/복원
-- 실시간 생성: SSE 기반 스트리밍으로 생성 중 텍스트를 에디터에 실시간 반영
-- Markdown Draft Studio: 생성된 글을 Markdown으로 미리보기/수정/저장
-- UI 워크스페이스: 좌측 메뉴바(Session/Sources/Posts/Editor) + 우측 편집/미리보기 영역
-- Toast 피드백: 생성/저장/오류 상태를 상단 토스트로 표시
-- Revision 저장: 생성본과 수정본을 버전 이력으로 DB에 기록
-- 회고형 생성 품질(P1): 타임라인/테마/근거 인용 중심 프롬프트로 구조화
-- Refinement (재생성): 기존 생성된 글을 기반으로 사용자 지시사항(instruction)을 반영하여 수정/보완
-- 수집 품질 강화(P2): 텍스트 정규화, 저신호 항목 필터링, 배치 중복 제거(fingerprint)
-- Generation Context 저장: 생성 시점의 provider/tone/format/instruction/refinePostId/소스 스냅샷을 post에 함께 저장
-- 로컬 DB: SQLite(`better-sqlite3`) 사용
+- **다양한 지식 소스 연동**: GitHub 리포지토리(커밋 히스토리) 및 Notion 페이지 내용을 수집하여 블로그 작성 자료로 활용
+- **세션 기반 컨텍스트 관리**: 생성할 블로그 글의 목적에 맞게 필요한 소스만 선택하여 작업 세션을 구성
+- **맞춤형 AI 블로그 글 생성**: 포스트 형식, 문체, 생성에 사용할 AI 에이전트를 세션별로 설정해 글을 생성하고 개선(Refinement)
+- **실시간 스트리밍 생성**: SSE(Server-Sent Events)를 통해 에디터에서 AI의 글 생성 과정을 실시간으로 확인 및 반영
+- **자체 통합 에디터 내장**: 생성된 마크다운(Markdown) 초안을 바로 수정하고, 버전을 관리(Revision)할 수 있는 통합 에디터 지원
+- **로컬 기반의 독립적 동작**: 메타데이터와 결과물은 로컬 SQLite DB에 안전하게 저장하여 외부 의존성을 최소화
 
 ## AI 에이전트 가이드
 
@@ -92,34 +85,6 @@ brew install p7zip
 
 상세 환경변수 예시는 `apps/api/.env.example` 참고.
 
-## API 개요
+## API 문서
 
-- `POST /sources` 소스 생성(repo/notion)
-- `GET /sources` 소스 목록
-- `DELETE /sources/:sourceId` 소스 삭제
-- `POST /sessions` 세션 생성
-- `GET /sessions` 세션 목록
-- `PATCH /sessions/:sessionId/config` 세션 tone/format/provider 설정
-- `POST /sessions/:sessionId/sources/:sourceId` 세션에 소스 연결
-- `DELETE /sessions/:sessionId/sources/:sourceId` 세션에서 소스 제거
-- `POST /sessions/:sessionId/sources/:sourceId/sync` 소스 수집 실행
-- `POST /sessions/:sessionId/generate` 블로그 생성 (provider/tone/format/userInstruction/refinePostId)
-- `GET /sessions/:sessionId/generate/stream` 블로그 생성 (Streaming)
-- `GET /sessions/:sessionId/posts` 생성된 글 목록
-- `GET /sessions/:sessionId/posts/:postId` 생성 글 단건 조회
-- `PATCH /sessions/:sessionId/posts/:postId` Markdown 본문/제목/상태 수정 저장
-- `GET /sessions/:sessionId/posts/:postId/revisions` revision 히스토리 조회
-- `GET /sessions/:sessionId/posts/:postId/revisions/:revisionId` 특정 revision 본문 조회(롤백용 로드)
-
-UI에서는 revision의 `Load` 버튼으로 과거 버전을 에디터에 불러온 뒤, `Save Markdown`을 눌러 현재 draft에 롤백 반영할 수 있습니다.
-
-또한 post 상세에는 생성 시점의 `Generation Context`(사용 instruction, 사용된 소스, 옵션)가 함께 표시됩니다.
-
-## 요구사항 매핑
-
-- 커밋/Notion 단일 또는 혼합 입력 지원
-- 입력 소스 중간 추가/제거 지원
-- 기본 기간 3개월
-- 기본 작성자 필터 없음
-- SQLite 저장소 사용
-- 터미널 에이전트/MCP 연동 가능한 생성 파이프라인 지원
+백엔드 서버 API 목록과 설명은 [`API.md`](./API.md) 문서를 참고해 주세요.
