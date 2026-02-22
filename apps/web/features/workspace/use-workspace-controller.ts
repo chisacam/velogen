@@ -683,7 +683,7 @@ export function useWorkspaceController() {
       const questionId = answer.questionId.trim();
       const question = answer.question.trim();
 
-      if (!questionId || !question || answer.answer.trim().length === 0) {
+      if (!questionId || !question) {
         continue;
       }
 
@@ -719,9 +719,13 @@ export function useWorkspaceController() {
         return undefined;
       }
 
+      const activeAnswers = normalizeClarificationAnswers(
+        clarificationDraftAnswers ?? clarificationAnswers
+      ).filter((a) => a.answer.trim().length > 0);
+
       return {
         ...clarification.context,
-        answers: normalizeClarificationAnswers(clarificationDraftAnswers ?? clarificationAnswers)
+        answers: activeAnswers
       };
     },
     [clarification?.context, clarificationAnswers, normalizeClarificationAnswers]
@@ -942,24 +946,24 @@ export function useWorkspaceController() {
         setIsGenerating(false);
       }
     }, [
-      activeConversationThreadKey,
-      activeRevisionId,
-      autoGenerateImages,
-      format,
-      generateAndInsertImages,
-      generateMode,
-      provider,
-      pushToast,
-      isGenerationClarificationResponse,
-      applyClarification,
-      refreshSessionDetails,
-      selectedPostId,
-      selectedSession?.title,
-      selectedSessionId,
-      setPanel,
-      tone,
-      userInstruction
-    ]);
+    activeConversationThreadKey,
+    activeRevisionId,
+    autoGenerateImages,
+    format,
+    generateAndInsertImages,
+    generateMode,
+    provider,
+    pushToast,
+    isGenerationClarificationResponse,
+    applyClarification,
+    refreshSessionDetails,
+    selectedPostId,
+    selectedSession?.title,
+    selectedSessionId,
+    setPanel,
+    tone,
+    userInstruction
+  ]);
 
   const retryAfterClarification = useCallback(
     async (clarificationDraftAnswers?: GenerationClarificationAnswer[]): Promise<void> => {
