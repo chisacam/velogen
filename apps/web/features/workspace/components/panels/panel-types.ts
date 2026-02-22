@@ -1,20 +1,33 @@
 import type { AgentProvider, GenerationClarificationAnswer, GenerationClarificationResponse, SourceSummary } from "@velogen/shared";
 import type { FormEvent } from "react";
 
-import type { EditorMode, GenerationMode, GeneratedPost, PostRevision, PostSummary, SessionSource, SessionSummary, ToastMessage, WorkspacePanel, WorkspaceNavItem } from "../../types";
+import type {
+  EditorMode,
+  GenerationConversationTurn,
+  GenerationMode,
+  GeneratedPost,
+  PostRevision,
+  PostSummary,
+  SessionSource,
+  SessionSummary,
+  ToastMessage,
+  WorkspacePanel,
+  WorkspaceNavItem
+} from "../../types";
 
 type PeriodOption = {
   label: string;
   value: string;
 };
 
-export type WorkspaceSidebarProps = {
+export type WorkspaceSidebarProps = GenerationPanelProps & {
   activePanel: WorkspacePanel;
   navItems: WorkspaceNavItem[];
   sessionSources: SessionSource[];
   posts: PostSummary[];
+  revisions: PostRevision[];
+  onLoadRevision: (revisionId: string) => Promise<void>;
   selectedSession: SessionSummary | null;
-  statusText?: string;
   setPanel: (panel: WorkspacePanel) => void;
 };
 
@@ -85,8 +98,16 @@ export type EditorPanelProps = {
   setPostBodyDraft: (body: string) => void;
   flashHeading: boolean;
   flashCitation: boolean;
-  revisions: PostRevision[];
-  onLoadRevision: (revisionId: string) => Promise<void>;
+  clarification: GenerationClarificationResponse | null;
+  clarificationAnswers: GenerationClarificationAnswer[];
+  clarificationConversation: GenerationConversationTurn[];
+  onClarificationAnswerChange: (questionId: string, question: string, answer: string) => void;
+  onRetryAfterClarification: (clarificationDraftAnswers?: GenerationClarificationAnswer[]) => Promise<void>;
+  onClearClarification: () => void;
+  tone: string;
+  setTone: (tone: string) => void;
+  format: string;
+  setFormat: (format: string) => void;
 };
 
 export type PostsPanelProps = {
@@ -113,13 +134,8 @@ export type GenerationPanelProps = {
   generatedPost: GeneratedPost | null;
   selectedPostId: string;
   postBodyDraft: string;
-  clarification: GenerationClarificationResponse | null;
-  clarificationAnswers: GenerationClarificationAnswer[];
-  onClarificationAnswerChange: (questionId: string, question: string, answer: string) => void;
   tone: string;
   setTone: (tone: string) => void;
   format: string;
   setFormat: (format: string) => void;
-  onRetryAfterClarification: (clarificationDraftAnswers?: GenerationClarificationAnswer[]) => Promise<void>;
-  onClearClarification: () => void;
 };

@@ -22,9 +22,32 @@ export default function HomePage() {
         navItems={controller.navItems}
         sessionSources={controller.sessionSources}
         posts={controller.posts}
+        generatedPost={controller.generatedPost}
+        selectedPostId={controller.selectedPostId}
+        revisions={controller.revisions}
+        onLoadRevision={controller.onLoadRevision}
         selectedSession={controller.selectedSession}
-        statusText={controller.status}
         setPanel={controller.setPanel}
+        genPanelOpen={controller.genPanelOpen}
+        setGenPanelOpen={controller.setGenPanelOpen}
+        generateMode={controller.generateMode}
+        setGenerateMode={controller.setGenerateMode}
+        postStatusDraft={controller.postStatusDraft}
+        setPostStatusDraft={controller.setPostStatusDraft}
+        autoGenerateImages={controller.autoGenerateImages}
+        setAutoGenerateImages={controller.setAutoGenerateImages}
+        isGenerating={controller.isGenerating}
+        isGeneratingImages={controller.isGeneratingImages}
+        onGenerate={controller.onGenerate}
+        onSavePost={controller.onSavePost}
+        onExportMarkdown={controller.onExportMarkdown}
+        userInstruction={controller.userInstruction}
+        setUserInstruction={controller.setUserInstruction}
+        postBodyDraft={controller.postBodyDraft}
+        tone={controller.tone}
+        setTone={controller.setTone}
+        format={controller.format}
+        setFormat={controller.setFormat}
       />
 
       <section className="workspace">
@@ -95,42 +118,20 @@ export default function HomePage() {
             setPostBodyDraft={controller.setPostBodyDraft}
             flashHeading={controller.flashHeading}
             flashCitation={controller.flashCitation}
-            revisions={controller.revisions}
-            onLoadRevision={controller.onLoadRevision}
+            clarification={controller.clarification}
+            clarificationAnswers={controller.clarificationAnswers}
+            clarificationConversation={controller.clarificationConversation}
+            onClarificationAnswerChange={controller.onClarificationAnswerChange}
+            onRetryAfterClarification={controller.onRetryAfterClarification}
+            onClearClarification={controller.onClearClarification}
+            tone={controller.tone}
+            setTone={controller.setTone}
+            format={controller.format}
+            setFormat={controller.setFormat}
           />
         ) : null}
 
         {controller.activePanel === "posts" ? <PostsPanel posts={controller.posts} selectPost={controller.selectPost} /> : null}
-
-        <FloatingGenerationPanel
-          genPanelOpen={controller.genPanelOpen}
-          setGenPanelOpen={controller.setGenPanelOpen}
-          generateMode={controller.generateMode}
-          setGenerateMode={controller.setGenerateMode}
-          postStatusDraft={controller.postStatusDraft}
-          setPostStatusDraft={controller.setPostStatusDraft}
-          autoGenerateImages={controller.autoGenerateImages}
-          setAutoGenerateImages={controller.setAutoGenerateImages}
-          isGenerating={controller.isGenerating}
-          isGeneratingImages={controller.isGeneratingImages}
-          onGenerate={controller.onGenerate}
-          onSavePost={controller.onSavePost}
-          onExportMarkdown={controller.onExportMarkdown}
-          userInstruction={controller.userInstruction}
-          setUserInstruction={controller.setUserInstruction}
-          generatedPost={controller.generatedPost}
-          selectedPostId={controller.selectedPostId}
-          postBodyDraft={controller.postBodyDraft}
-          clarification={controller.clarification}
-          clarificationAnswers={controller.clarificationAnswers}
-          onClarificationAnswerChange={controller.onClarificationAnswerChange}
-          tone={controller.tone}
-          setTone={controller.setTone}
-          format={controller.format}
-          setFormat={controller.setFormat}
-          onRetryAfterClarification={controller.onRetryAfterClarification}
-          onClearClarification={controller.onClearClarification}
-        />
       </section>
     </main>
   );

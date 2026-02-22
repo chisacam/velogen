@@ -1,4 +1,3 @@
-import { useEffect, useRef, useState } from "react";
 import { type GenerationPanelProps } from "./panel-types";
 
 export function FloatingGenerationPanel({
@@ -20,103 +19,24 @@ export function FloatingGenerationPanel({
   generatedPost,
   selectedPostId,
   postBodyDraft,
-  clarification,
   tone,
   setTone,
   format,
-  setFormat,
-  clarificationAnswers,
-  onClarificationAnswerChange,
-  onRetryAfterClarification,
-  onClearClarification
+  setFormat
 }: GenerationPanelProps) {
-  const [draftAnswers, setDraftAnswers] = useState<Record<string, string>>({});
-  const composingByQuestionIdRef = useRef<Record<string, boolean>>({});
-
-  const clarificationQuestionAnswers = new Map(
-    clarificationAnswers.map((answer) => [answer.questionId, answer.answer])
-  );
-
-  const getDraftAnswer = (questionId: string): string => {
-    return draftAnswers[questionId] ?? clarificationQuestionAnswers.get(questionId) ?? "";
-  };
-
-  useEffect(() => {
-    setDraftAnswers((previous) => {
-      const next = { ...previous };
-      const nextKeys = new Set<string>();
-
-      for (const answer of clarificationAnswers) {
-        next[answer.questionId] = answer.answer;
-        nextKeys.add(answer.questionId);
-      }
-
-      for (const key of Object.keys(next)) {
-        if (!nextKeys.has(key)) {
-          delete next[key];
-        }
-      }
-
-      return next;
-    });
-  }, [clarificationAnswers]);
-
-  const updateDraftAnswer = (questionId: string, value: string): void => {
-    setDraftAnswers((previous) => ({
-      ...previous,
-      [questionId]: value
-    }));
-  };
-
-  const commitToParent = (questionId: string, question: string, value: string): void => {
-    onClarificationAnswerChange(questionId, question, value);
-  };
-
-  const handleCompositionStart = (questionId: string): void => {
-    composingByQuestionIdRef.current[questionId] = true;
-  };
-
-  const handleCompositionEnd = (questionId: string, question: string, event: React.CompositionEvent<HTMLTextAreaElement>): void => {
-    composingByQuestionIdRef.current[questionId] = false;
-    const value = event.currentTarget.value;
-    updateDraftAnswer(questionId, value);
-    commitToParent(questionId, question, value);
-  };
-
-  const handleBlurCommit = (questionId: string, question: string, value: string): void => {
-    if (composingByQuestionIdRef.current[questionId]) {
-      return;
-    }
-    commitToParent(questionId, question, value);
-  };
-
-  const buildRetryAnswers = (): Array<{ questionId: string; question: string; answer: string }> => {
-    if (!clarification?.clarifyingQuestions) {
-      return [];
-    }
-
-    return clarification.clarifyingQuestions
-      .map((question) => {
-        const answer = getDraftAnswer(question.id);
-        return {
-          questionId: question.id,
-          question: question.question,
-          answer
-        };
-      })
-      .filter((answer) => answer.answer.trim().length > 0);
-  };
-
   return (
     <div className={`genPanelFloating ${genPanelOpen ? "open" : "closed"}`}>
       <button
         type="button"
         className={`genPanelCollapsed ${isGenerating || isGeneratingImages ? "generating" : ""}`}
-        aria-label="Open generation panel"
-        onClick={() => setGenPanelOpen(true)}
-        title="Open generation panel"
+        aria-label={genPanelOpen ? "Close generation panel" : "Open generation panel"}
+        onClick={() => setGenPanelOpen(!genPanelOpen)}
+        title="Toggle generation panel"
       >
-        {isGenerating || isGeneratingImages ? <div className="collapsedSpinner" /> : "⚙"}
+        <span className="genPanelBtnIcon">
+          {isGenerating || isGeneratingImages ? <div className="collapsedSpinner" /> : "⚙"}
+        </span>
+        <span className="genPanelBtnText">Generation Settings</span>
       </button>
 
       <div className="genPanelExpanded">
@@ -133,96 +53,7 @@ export function FloatingGenerationPanel({
         </div>
 
         <div className="genPanelBody">
-          {clarification ? (
-            <div className="clarificationCard">
-              <div className="clarificationHeader">필수 입력값 확인</div>
-              <p className="clarificationMessage">{clarification.message}</p>
-
-              {(clarification.clarifyingQuestions?.length ?? 0) > 0 ? (
-                <div className="clarificationQuestionList">
-                  <div className="clarificationSubHeader">AI가 추가 보완 정보를 요청합니다</div>
-                  {clarification.clarifyingQuestions?.map((question) => {
-                    return (
-                      <label key={question.id} className="clarificationFieldWrap">
-                        <span className="clarificationLabel">{question.question}</span>
-                        <textarea
-                          className="clarificationTextarea"
-                          value={getDraftAnswer(question.id)}
-                          onChange={(event) => {
-                            const value = event.target.value;
-                            updateDraftAnswer(question.id, value);
-                            if (!composingByQuestionIdRef.current[question.id]) {
-                              commitToParent(question.id, question.question, value);
-                            }
-                          }}
-                          onCompositionStart={() => handleCompositionStart(question.id)}
-                          onCompositionEnd={(event) => handleCompositionEnd(question.id, question.question, event)}
-                          onBlur={(event) => {
-                            handleBlurCommit(question.id, question.question, event.currentTarget.value);
-                          }}
-                          placeholder="답변을 입력해 주세요."
-                          rows={2}
-                        />
-                        {question.rationale ? <span className="clarificationRationale">{question.rationale}</span> : null}
-                      </label>
-                    );
-                  })}
-                </div>
-              ) : null}
-
-              {clarification.missing.some((item) => item.field === "tone") ? (
-                <label className="clarificationFieldWrap">
-                  <span className="clarificationLabel">Tone / Style</span>
-                  <input
-                    value={tone}
-                    onChange={(event) => setTone(event.target.value)}
-                    placeholder={`추천값: ${clarification.defaults.tone}`}
-                  />
-                  <button
-                    type="button"
-                    className="secondary tinyButton"
-                    onClick={() => setTone(clarification.defaults.tone)}
-                  >
-                    기본값 적용
-                  </button>
-                </label>
-              ) : null}
-
-              {clarification.missing.some((item) => item.field === "format") ? (
-                <label className="clarificationFieldWrap">
-                  <span className="clarificationLabel">Format</span>
-                  <input
-                    value={format}
-                    onChange={(event) => setFormat(event.target.value)}
-                    placeholder={`추천값: ${clarification.defaults.format}`}
-                  />
-                  <button
-                    type="button"
-                    className="secondary tinyButton"
-                    onClick={() => setFormat(clarification.defaults.format)}
-                  >
-                    기본값 적용
-                  </button>
-                </label>
-              ) : null}
-
-              <div className="clarificationActions">
-                <button type="button" className="secondary" onClick={() => {
-                  onClearClarification();
-                }}>
-                  닫기
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    void onRetryAfterClarification(buildRetryAnswers());
-                  }}
-                >
-                  입력값 보완 후 생성
-                </button>
-              </div>
-            </div>
-          ) : null}
+          <p className="genPanelHint">질문/답변 대화 로그는 Editor 패널 하단 Conversation에서 확인하고 답변할 수 있습니다.</p>
 
           <div className="genPanelRow">
             <div className="instructionModeRow">
@@ -250,6 +81,7 @@ export function FloatingGenerationPanel({
                 </button>
               </div>
             </div>
+
             <div className="instructionModeRow">
               <span className="instructionLabel">Status</span>
               <div className="modeToggleGroup">
@@ -271,6 +103,7 @@ export function FloatingGenerationPanel({
                 </button>
               </div>
             </div>
+
             <div className="instructionModeRow">
               <button
                 type="button"
@@ -283,9 +116,21 @@ export function FloatingGenerationPanel({
               </button>
             </div>
           </div>
-          {generateMode === "refine" && selectedPostId && (
+
+          <div className="genPanelRow inputsRow">
+            <label className="generationFieldWrap">
+              <span className="instructionLabel">Tone</span>
+              <input value={tone} onChange={(event) => setTone(event.target.value)} placeholder="예: 차분한 회고형" />
+            </label>
+            <label className="generationFieldWrap">
+              <span className="instructionLabel">Format</span>
+              <input value={format} onChange={(event) => setFormat(event.target.value)} placeholder="예: 튜토리얼, 기술 분석" />
+            </label>
+          </div>
+
+          {generateMode === "refine" && selectedPostId ? (
             <span className="refineBadge">수정 대상: {generatedPost?.title ?? selectedPostId}</span>
-          )}
+          ) : null}
 
           <label className="instructionInputWrap">
             <span className="instructionLabel">

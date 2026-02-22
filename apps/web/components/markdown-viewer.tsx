@@ -3,11 +3,14 @@
 import ReactMarkdown from "react-markdown";
 import rehypeSanitize from "rehype-sanitize";
 import remarkGfm from "remark-gfm";
+import type { RefObject, UIEvent } from "react";
 
 interface MarkdownViewerProps {
   content: string;
   flashHeading?: boolean;
   flashCitation?: boolean;
+  viewerRef?: RefObject<HTMLDivElement | null>;
+  onScroll?: (event: UIEvent<HTMLDivElement>) => void;
 }
 
 function decorateCitations(markdown: string): string {
@@ -26,10 +29,20 @@ function decorateCitations(markdown: string): string {
   return transformed.join("\n");
 }
 
-export function MarkdownViewer({ content, flashHeading = false, flashCitation = false }: MarkdownViewerProps) {
+export function MarkdownViewer({
+  content,
+  flashHeading = false,
+  flashCitation = false,
+  viewerRef,
+  onScroll
+}: MarkdownViewerProps) {
   const decorated = decorateCitations(content);
   return (
-    <div className={`markdown-viewer ${flashHeading ? "flash-heading" : ""} ${flashCitation ? "flash-citation" : ""}`.trim()}>
+    <div
+      ref={viewerRef}
+      onScroll={onScroll}
+      className={`markdown-viewer ${flashHeading ? "flash-heading" : ""} ${flashCitation ? "flash-citation" : ""}`.trim()}
+    >
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[rehypeSanitize]}

@@ -8,10 +8,6 @@ export function SessionPanel({
   selectedSessionId,
   setSelectedSessionId,
   sessions,
-  tone,
-  setTone,
-  format,
-  setFormat,
   provider,
   setProvider,
   selectedSession,
@@ -50,25 +46,10 @@ export function SessionPanel({
               ))}
             </select>
           </label>
-          <label>
-            Tone / Style
-            <input
-              value={tone}
-              onChange={(event) => setTone(event.target.value)}
-              placeholder={selectedSession?.tone ?? "예: 차분한 회고형, 직설적 기술 설명"}
-            />
-          </label>
-          <label>
-            Format
-            <input
-              value={format}
-              onChange={(event) => setFormat(event.target.value)}
-              placeholder={selectedSession?.format ?? "예: 문제-해결-회고 3단 구조"}
-            />
-          </label>
+
           <label>
             Generator
-              <select
+            <select
               id="provider-select"
               value={provider}
               onChange={(event) => setProvider(event.target.value as AgentProvider)}

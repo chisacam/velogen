@@ -12,6 +12,7 @@ import { API_BASE, apiRequest } from "../../lib/api-client";
 import { PERIOD_OPTIONS } from "./constants";
 import type {
   EditorMode,
+  GenerationConversationTurn,
   GenerationMode,
   GeneratedPost,
   PostRevision,
@@ -33,6 +34,36 @@ const NAV_ITEMS: WorkspaceNavItem[] = [
   { key: "posts", icon: "P", label: "Posts" },
 ];
 
+const CLARIFICATION_CONVERSATION_STORAGE_KEY = "velogen:clarification-conversations:v2";
+
+function buildConversationThreadKey(
+  sessionId: string,
+  postId: string | null,
+  revisionId: string | null,
+  mode: GenerationMode
+): string {
+  if (!sessionId) {
+    return "";
+  }
+
+  if (mode === "new" || !postId) {
+    return `${sessionId}:draft:new`;
+  }
+
+  return `${sessionId}:post:${postId}:revision:${revisionId ?? "head"}`;
+}
+
+function mergeConversationTurns(
+  existing: GenerationConversationTurn[],
+  incoming: GenerationConversationTurn[]
+): GenerationConversationTurn[] {
+  const byId = new Map<string, GenerationConversationTurn>();
+  for (const turn of [...existing, ...incoming]) {
+    byId.set(turn.id, turn);
+  }
+  return Array.from(byId.values());
+}
+
 export type WorkspaceController = ReturnType<typeof useWorkspaceController>;
 
 export function useWorkspaceController() {
@@ -43,6 +74,7 @@ export function useWorkspaceController() {
   const [posts, setPosts] = useState<PostSummary[]>([]);
   const [generatedPost, setGeneratedPost] = useState<GeneratedPost | null>(null);
   const [selectedPostId, setSelectedPostId] = useState("");
+  const [activeRevisionId, setActiveRevisionId] = useState<string | null>(null);
   const [editorMode, setEditorMode] = useState<EditorMode>("split");
   const [activePanel, setActivePanel] = useState<WorkspacePanel>("session");
   const [isGenerating, setIsGenerating] = useState(false);
@@ -55,6 +87,9 @@ export function useWorkspaceController() {
   const [postStatusDraft, setPostStatusDraft] = useState<"draft" | "published">("draft");
   const [clarification, setClarification] = useState<GenerationClarificationResponse | null>(null);
   const [clarificationAnswers, setClarificationAnswers] = useState<GenerationClarificationAnswer[]>([]);
+  const [clarificationConversation, setClarificationConversation] = useState<GenerationConversationTurn[]>([]);
+  const [clarificationConversationByThread, setClarificationConversationByThread] = useState<Record<string, GenerationConversationTurn[]>>({});
+  const [activeConversationThreadKey, setActiveConversationThreadKey] = useState("");
   const [revisions, setRevisions] = useState<PostRevision[]>([]);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [sessionTitle, setSessionTitle] = useState("Weekly Engineering Digest");
@@ -78,6 +113,8 @@ export function useWorkspaceController() {
   const streamAbortRef = useRef<AbortController | null>(null);
   const previousHeadingCountRef = useRef(0);
   const previousCitationCountRef = useRef(0);
+  const previousConversationThreadKeyRef = useRef("");
+  const generationConversationThreadKeyRef = useRef("");
 
   const selectedSession = useMemo(
     () => sessions.find((item) => item.id === selectedSessionId) ?? null,
@@ -93,6 +130,156 @@ export function useWorkspaceController() {
       setToasts((current) => current.filter((toast) => toast.id !== id));
     }, 3200);
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    try {
+      const raw = window.localStorage.getItem(CLARIFICATION_CONVERSATION_STORAGE_KEY);
+      if (!raw) {
+        return;
+      }
+
+      const parsed = JSON.parse(raw) as unknown;
+      if (!parsed || typeof parsed !== "object") {
+        return;
+      }
+
+      const normalized: Record<string, GenerationConversationTurn[]> = {};
+      for (const [threadKey, turns] of Object.entries(parsed as Record<string, unknown>)) {
+        if (!Array.isArray(turns)) {
+          continue;
+        }
+
+        const validTurns = turns
+          .map((turn) => {
+            if (!turn || typeof turn !== "object") {
+              return null;
+            }
+
+            const candidate = turn as Record<string, unknown>;
+            const id = typeof candidate.id === "string" ? candidate.id : "";
+            const role = candidate.role;
+
+            if (!id || (role !== "agent" && role !== "user")) {
+              return null;
+            }
+
+            if (role === "agent") {
+              const message = typeof candidate.message === "string" ? candidate.message : "";
+              const questions = Array.isArray(candidate.questions) ? candidate.questions : [];
+              const normalizedQuestions = questions
+                .map((question) => {
+                  if (!question || typeof question !== "object") {
+                    return null;
+                  }
+                  const item = question as Record<string, unknown>;
+                  const questionId = typeof item.id === "string" ? item.id : "";
+                  const questionText = typeof item.question === "string" ? item.question : "";
+                  const rationale = typeof item.rationale === "string" ? item.rationale : undefined;
+                  if (!questionId || !questionText) {
+                    return null;
+                  }
+                  return {
+                    id: questionId,
+                    question: questionText,
+                    ...(rationale ? { rationale } : {})
+                  };
+                })
+                .filter((question): question is { id: string; question: string; rationale?: string } => question !== null);
+
+              return {
+                id,
+                role,
+                message,
+                questions: normalizedQuestions
+              } satisfies GenerationConversationTurn;
+            }
+
+            const answers = Array.isArray(candidate.answers) ? candidate.answers : [];
+            const normalizedAnswers = answers
+              .map((answer) => {
+                if (!answer || typeof answer !== "object") {
+                  return null;
+                }
+                const item = answer as Record<string, unknown>;
+                const questionId = typeof item.questionId === "string" ? item.questionId : "";
+                const question = typeof item.question === "string" ? item.question : "";
+                const answerText = typeof item.answer === "string" ? item.answer : "";
+                if (!questionId || !question || !answerText) {
+                  return null;
+                }
+                return {
+                  questionId,
+                  question,
+                  answer: answerText
+                };
+              })
+              .filter((answer): answer is GenerationClarificationAnswer => answer !== null);
+
+            return {
+              id,
+              role,
+              answers: normalizedAnswers
+            } satisfies GenerationConversationTurn;
+          })
+          .filter((turn): turn is GenerationConversationTurn => turn !== null);
+
+        if (validTurns.length > 0) {
+          normalized[threadKey] = validTurns;
+        }
+      }
+
+      setClarificationConversationByThread(normalized);
+    } catch {
+      // ignore malformed local cache
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    try {
+      window.localStorage.setItem(
+        CLARIFICATION_CONVERSATION_STORAGE_KEY,
+        JSON.stringify(clarificationConversationByThread)
+      );
+    } catch {
+      // ignore storage write failures
+    }
+  }, [clarificationConversationByThread]);
+
+  const appendConversationTurn = useCallback((turn: GenerationConversationTurn): void => {
+    const threadKey = generationConversationThreadKeyRef.current || activeConversationThreadKey;
+    if (!threadKey) {
+      return;
+    }
+
+    setClarificationConversationByThread((current) => ({
+      ...current,
+      [threadKey]: [...(current[threadKey] ?? []), turn]
+    }));
+  }, [activeConversationThreadKey]);
+
+  const clearConversationForCurrentThread = useCallback((): void => {
+    if (!activeConversationThreadKey) {
+      return;
+    }
+
+    setClarificationConversationByThread((current) => {
+      if (!(activeConversationThreadKey in current)) {
+        return current;
+      }
+      return {
+        ...current,
+        [activeConversationThreadKey]: []
+      };
+    });
+  }, [activeConversationThreadKey]);
 
   const insertImagesIntoMarkdown = useCallback(
     (body: string, images: Array<{ sectionTitle: string; mimeType: string; base64: string }>): string => {
@@ -185,6 +372,7 @@ export function useWorkspaceController() {
     setPostBodyDraft(post.body);
     setPostStatusDraft(post.status);
     setSelectedPostId(post.id);
+    setActiveRevisionId(null);
     setRevisions(revisionsData);
   }, []);
 
@@ -202,6 +390,13 @@ export function useWorkspaceController() {
     if (!selectedSessionId) {
       setSessionSources([]);
       setPosts([]);
+      setClarification(null);
+      setClarificationAnswers([]);
+      setClarificationConversation([]);
+      setActiveConversationThreadKey("");
+      previousConversationThreadKeyRef.current = "";
+      generationConversationThreadKeyRef.current = "";
+      setActiveRevisionId(null);
       return;
     }
 
@@ -213,6 +408,33 @@ export function useWorkspaceController() {
       }
     })();
   }, [refreshSessionDetails, selectedSessionId]);
+
+  useEffect(() => {
+    const nextThreadKey = buildConversationThreadKey(
+      selectedSessionId,
+      selectedPostId || null,
+      activeRevisionId,
+      generateMode
+    );
+    setActiveConversationThreadKey(nextThreadKey);
+  }, [activeRevisionId, generateMode, selectedPostId, selectedSessionId]);
+
+  useEffect(() => {
+    if (!activeConversationThreadKey) {
+      setClarificationConversation([]);
+      return;
+    }
+
+    const threadChanged = previousConversationThreadKeyRef.current !== activeConversationThreadKey;
+    previousConversationThreadKeyRef.current = activeConversationThreadKey;
+
+    if (threadChanged) {
+      setClarification(null);
+      setClarificationAnswers([]);
+    }
+
+    setClarificationConversation(clarificationConversationByThread[activeConversationThreadKey] ?? []);
+  }, [activeConversationThreadKey, clarificationConversationByThread]);
 
   useEffect(() => {
     if (!selectedSessionId || !selectedPostId) {
@@ -517,11 +739,18 @@ export function useWorkspaceController() {
 
       setClarification(response);
       setClarificationAnswers(normalizeClarificationAnswers(response.context?.answers ?? []));
+      appendConversationTurn({
+        id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        role: "agent",
+        message: response.message,
+        questions: response.clarifyingQuestions ?? []
+      });
       setStatus(response.message);
       pushToast(response.message, "info");
       setIsGenerating(false);
     },
     [
+      appendConversationTurn,
       format,
       normalizeClarificationAnswers,
       pushToast,
@@ -535,7 +764,9 @@ export function useWorkspaceController() {
   const clearClarification = useCallback(() => {
     setClarification(null);
     setClarificationAnswers([]);
-  }, []);
+    setClarificationConversation([]);
+    clearConversationForCurrentThread();
+  }, [clearConversationForCurrentThread]);
 
   const onGenerate = useCallback(
     async (
@@ -553,17 +784,20 @@ export function useWorkspaceController() {
         streamAbortRef.current = null;
       }
 
+      const fallbackThreadKey = buildConversationThreadKey(
+        selectedSessionId,
+        selectedPostId || null,
+        activeRevisionId,
+        generateMode
+      );
+      generationConversationThreadKeyRef.current = activeConversationThreadKey || fallbackThreadKey;
+
       setPanel("editor");
       setIsGenerating(true);
-      setGeneratedPost(null);
       if (!clarificationContext) {
         setClarification(null);
         setClarificationAnswers([]);
       }
-      setSelectedPostId("");
-      setPostStatusDraft("draft");
-      setPostTitleDraft(selectedSession?.title ?? "Streaming Draft");
-      setPostBodyDraft("");
       setStatus("Generating blog post...");
       pushToast("Generation started", "info");
 
@@ -598,6 +832,7 @@ export function useWorkspaceController() {
         const decoder = new TextDecoder();
         let buffer = "";
         let completed = false;
+        let receivedChunk = false;
 
         while (!completed) {
           const { done, value } = await reader.read();
@@ -631,7 +866,17 @@ export function useWorkspaceController() {
               if (payload.type === "status") {
                 setStatus(payload.message);
               } else if (payload.type === "chunk") {
-                setPostBodyDraft((current) => current + payload.chunk);
+                if (!receivedChunk) {
+                  receivedChunk = true;
+                  setGeneratedPost(null);
+                  setSelectedPostId("");
+                  setActiveRevisionId(null);
+                  setPostStatusDraft("draft");
+                  setPostTitleDraft(selectedSession?.title ?? "Streaming Draft");
+                  setPostBodyDraft(payload.chunk);
+                } else {
+                  setPostBodyDraft((current) => current + payload.chunk);
+                }
               } else if (payload.type === "complete") {
                 completed = true;
                 const post = payload.post;
@@ -640,11 +885,31 @@ export function useWorkspaceController() {
                   applyClarification(post);
                 } else {
                   setClarification(null);
+                  setClarificationAnswers([]);
                   setGeneratedPost(post);
                   setSelectedPostId(post.id);
+                  setActiveRevisionId(null);
                   setPostTitleDraft(post.title);
                   setPostBodyDraft(post.body);
                   setPostStatusDraft(post.status);
+
+                  const sourceThreadKey = generationConversationThreadKeyRef.current;
+                  const targetThreadKey = buildConversationThreadKey(selectedSessionId, post.id, null, "refine");
+                  generationConversationThreadKeyRef.current = targetThreadKey;
+                  if (sourceThreadKey && sourceThreadKey !== targetThreadKey) {
+                    setClarificationConversationByThread((current) => {
+                      const sourceTurns = current[sourceThreadKey] ?? [];
+                      if (sourceTurns.length === 0) {
+                        return current;
+                      }
+                      const targetTurns = current[targetThreadKey] ?? [];
+                      return {
+                        ...current,
+                        [targetThreadKey]: mergeConversationTurns(targetTurns, sourceTurns)
+                      };
+                    });
+                  }
+
                   setStatus("Blog post generated");
                   pushToast("Blog post generated", "success");
                   void refreshSessionDetails(selectedSessionId);
@@ -677,30 +942,40 @@ export function useWorkspaceController() {
         setIsGenerating(false);
       }
     }, [
-    autoGenerateImages,
-    clearClarification,
-    format,
-    generateAndInsertImages,
-    generateMode,
-    provider,
-    pushToast,
-    isGenerationClarificationResponse,
-    applyClarification,
-    refreshSessionDetails,
-    selectedPostId,
-    selectedSession?.title,
-    selectedSessionId,
-    setPanel,
-    tone,
-    userInstruction
-  ]);
+      activeConversationThreadKey,
+      activeRevisionId,
+      autoGenerateImages,
+      format,
+      generateAndInsertImages,
+      generateMode,
+      provider,
+      pushToast,
+      isGenerationClarificationResponse,
+      applyClarification,
+      refreshSessionDetails,
+      selectedPostId,
+      selectedSession?.title,
+      selectedSessionId,
+      setPanel,
+      tone,
+      userInstruction
+    ]);
 
   const retryAfterClarification = useCallback(
     async (clarificationDraftAnswers?: GenerationClarificationAnswer[]): Promise<void> => {
-      const context = buildRetryClarificationContext(clarificationDraftAnswers);
+      const submittedAnswers = normalizeClarificationAnswers(clarificationDraftAnswers ?? clarificationAnswers);
+      if (submittedAnswers.length > 0) {
+        appendConversationTurn({
+          id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+          role: "user",
+          answers: submittedAnswers
+        });
+      }
+
+      const context = buildRetryClarificationContext(submittedAnswers);
       await onGenerate(true, context);
     },
-    [buildRetryClarificationContext, onGenerate]
+    [appendConversationTurn, buildRetryClarificationContext, clarificationAnswers, normalizeClarificationAnswers, onGenerate]
   );
 
   const onSavePost = useCallback(async (): Promise<void> => {
@@ -773,6 +1048,7 @@ export function useWorkspaceController() {
         setPostTitleDraft(revision.title);
         setPostBodyDraft(revision.body);
         setPostStatusDraft(revision.status);
+        setActiveRevisionId(revision.id);
         setPanel("editor");
         setStatus(`Loaded revision v${revision.version}. Save to apply rollback.`);
         pushToast(`Loaded revision v${revision.version}`, "info");
@@ -785,6 +1061,7 @@ export function useWorkspaceController() {
 
   const selectPost = useCallback(
     (postId: string) => {
+      setActiveRevisionId(null);
       setSelectedPostId(postId);
       setPanel("editor");
     },
@@ -834,6 +1111,7 @@ export function useWorkspaceController() {
     genPanelOpen,
     clarification,
     clarificationAnswers,
+    clarificationConversation,
     navItems,
     selectedSession,
     PERIOD_OPTIONS,
