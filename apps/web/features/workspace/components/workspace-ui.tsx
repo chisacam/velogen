@@ -6,3 +6,4 @@ export { SourcesPanel } from "./panels/sources-panel";
 export { EditorPanel } from "./panels/editor-panel";
 export { PostsPanel } from "./panels/posts-panel";
 export { FloatingGenerationPanel } from "./panels/floating-generation-panel";
+export { ReviewPanel } from "./panels/review-panel";

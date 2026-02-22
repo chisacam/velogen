@@ -137,3 +137,14 @@ export interface BlogPostResult {
   updatedAt: string;
   generationMeta?: GenerationMeta;
 }
+
+export interface BlogReviewSuggestion {
+  originalText: string;
+  suggestedText: string;
+  reason: string;
+}
+
+export interface BlogReviewResult {
+  reviewComment: string;
+  suggestions: BlogReviewSuggestion[];
+}

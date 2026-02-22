@@ -130,7 +130,7 @@ export function GenerationConversationPanel({
   };
 
   return (
-    <section className="conversationPanel" aria-live="polite">
+    <section className={`conversationPanel ${!isOpen ? "collapsed" : ""}`} aria-live="polite">
       <div className="conversationHeaderRow">
         <button
           type="button"

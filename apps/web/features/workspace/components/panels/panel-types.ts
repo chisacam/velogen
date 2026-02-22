@@ -1,4 +1,4 @@
-import type { AgentProvider, GenerationClarificationAnswer, GenerationClarificationResponse, SourceSummary } from "@velogen/shared";
+import type { AgentProvider, GenerationClarificationAnswer, GenerationClarificationResponse, SourceSummary, BlogReviewResult } from "@velogen/shared";
 import type { FormEvent } from "react";
 
 import type {
@@ -108,6 +108,11 @@ export type EditorPanelProps = {
   setTone: (tone: string) => void;
   format: string;
   setFormat: (format: string) => void;
+  isReviewing: boolean;
+  reviewResult: BlogReviewResult | null;
+  onReviewPost: () => Promise<void>;
+  onApplySuggestion: (index: number) => void;
+  setReviewResult: (result: BlogReviewResult | null) => void;
 };
 
 export type PostsPanelProps = {

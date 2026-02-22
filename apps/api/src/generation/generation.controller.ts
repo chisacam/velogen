@@ -2,6 +2,7 @@ import { Body, Controller, Get, Param, Post, Query, Res } from "@nestjs/common";
 import type { AgentProvider, GenerateBlogDto, GenerationClarificationContext } from "@velogen/shared";
 import type { Response } from "express";
 import { SessionsService } from "../sessions/sessions.service";
+import { GenerationService } from "./generation.service";
 
 function getMessage(error: unknown): string {
   if (error instanceof Error) {
@@ -57,7 +58,7 @@ function parseClarificationContext(value?: string): GenerationClarificationConte
 
 @Controller("sessions/:sessionId/generate")
 export class GenerationController {
-  constructor(private readonly sessionsService: SessionsService) { }
+  constructor(private readonly sessionsService: SessionsService, private readonly generationService: GenerationService) { }
 
   @Post()
   generate(@Param("sessionId") sessionId: string, @Body() payload?: GenerateBlogDto) {
@@ -74,6 +75,11 @@ export class GenerationController {
       request.skipPreflight,
       request.clarificationContext
     );
+  }
+
+  @Post(":postId/review")
+  async reviewPost(@Param("sessionId") sessionId: string, @Param("postId") postId: string) {
+    return this.generationService.reviewPost(sessionId, postId);
   }
 
   @Post("stream")

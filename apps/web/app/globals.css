@@ -414,10 +414,55 @@ body {
 
 .workspaceBody.editorWorkspace {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   height: 100%;
   min-height: 0;
-  /* Ensures flex children can shrink */
+  gap: var(--space-4);
+  align-items: stretch;
+}
+
+.editorWorkspace .editorMainColumn {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  gap: var(--space-3);
+}
+
+.conversationPanel {
+  border: 1px solid #2f505924;
+  background: #f8fbfa;
+  border-radius: var(--radius-lg);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 380px;
+  flex-shrink: 0;
+  overflow-y: auto;
+}
+
+.editorWorkspace .editorRightSidebar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  width: 380px;
+  flex-shrink: 0;
+  height: 100%;
+}
+
+.editorRightSidebar .conversationPanel {
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  margin-top: 0;
+}
+
+.editorRightSidebar .conversationPanel.collapsed {
+  flex: none;
+  height: max-content;
+  overflow: hidden;
+  padding-bottom: 8px;
 }
 
 /* ─── Card ─── */
@@ -781,10 +826,12 @@ button.secondary:hover:not(:disabled) {
   border: 1px solid #2f505924;
   background: #f8fbfa;
   border-radius: var(--radius-lg);
-  padding: 12px;
-  display: grid;
-  gap: 10px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
   margin-top: auto;
+  transition: flex 0.2s ease, min-height 0.2s ease, padding 0.2s ease;
 }
 
 .conversationHeaderRow {
@@ -792,6 +839,7 @@ button.secondary:hover:not(:disabled) {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  flex-shrink: 0;
 }
 
 .conversationToggle {
@@ -820,11 +868,13 @@ button.secondary:hover:not(:disabled) {
 }
 
 .conversationLog {
-  max-height: 260px;
-  overflow: auto;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
   display: grid;
   gap: 8px;
   padding-right: 2px;
+  align-content: start;
 }
 
 .conversationTurn {
@@ -880,6 +930,7 @@ button.secondary:hover:not(:disabled) {
 }
 
 .conversationComposer {
+  flex-shrink: 0;
   border-top: 1px solid #2f505924;
   padding-top: 10px;
   display: grid;
@@ -900,6 +951,59 @@ button.secondary:hover:not(:disabled) {
 }
 
 .conversationActions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.suggestionCard {
+  border: 1px solid #2f505924;
+  border-radius: var(--radius-md);
+  background: #fff;
+  padding: 8px 10px;
+  display: grid;
+  gap: 6px;
+}
+
+.suggestionCard.disabled {
+  opacity: 0.6;
+}
+
+.suggestionReason {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--ink);
+}
+
+.suggestionDiff {
+  display: grid;
+  gap: 4px;
+  background: #f4f7f4;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+}
+
+.diffOriginal,
+.diffSuggested {
+  font-size: 0.8rem;
+}
+
+.diffOriginal p,
+.diffSuggested p {
+  margin: 0;
+  color: #3f595f;
+  white-space: pre-wrap;
+}
+
+.diffLabel {
+  display: inline-block;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  margin-bottom: 2px;
+}
+
+.suggestionActions {
   display: flex;
   justify-content: flex-end;
 }

@@ -8,7 +8,8 @@ import {
   SourcesPanel,
   ToastStack,
   WorkspaceHeader,
-  WorkspaceSidebar
+  WorkspaceSidebar,
+  ReviewPanel
 } from "../features/workspace/components/workspace-ui";
 import { useWorkspaceController } from "../features/workspace/use-workspace-controller";
 
@@ -128,6 +129,11 @@ export default function HomePage() {
             setTone={controller.setTone}
             format={controller.format}
             setFormat={controller.setFormat}
+            isReviewing={controller.isReviewing}
+            reviewResult={controller.reviewResult}
+            onReviewPost={controller.onReviewPost}
+            onApplySuggestion={controller.onApplySuggestion}
+            setReviewResult={controller.setReviewResult}
           />
         ) : null}
 

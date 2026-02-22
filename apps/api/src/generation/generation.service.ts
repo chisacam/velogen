@@ -1,15 +1,18 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
-import type {
+import * as fs from "node:fs/promises";
+import * as path from "node:path";
+import {
   AgentProvider,
   BlogPostResult,
-  GenerationClarificationResponse,
-  GenerationMeta,
+  BlogReviewResult,
   GenerateBlogResponse,
-  GenerationMissingField,
+  GenerationClarificationAnswer,
   GenerationClarificationContext,
   GenerationClarificationQuestion,
-  GenerationClarificationAnswer
+  GenerationClarificationResponse,
+  GenerationMeta,
+  GenerationMissingField
 } from "@velogen/shared";
 import { DatabaseService } from "../database/database.service";
 import { AgentRunnerService } from "./agent-runner.service";
@@ -594,12 +597,11 @@ export class GenerationService {
         "INSERT INTO blog_posts (id, session_id, title, body, provider, created_at, updated_at, status, generation_meta_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
       )
       .run(postId, sessionId, title, generatedBody, provider, createdAt, createdAt, status, metaJson);
-
     this.databaseService.connection
       .prepare(
         "INSERT INTO blog_post_revisions (id, post_id, version, title, body, status, source, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
       )
-      .run(randomUUID(), postId, 1, title, generatedBody, status, "generated", createdAt);
+      .run(randomUUID(), postId, 1, title, generatedBody, status, "ai", createdAt);
 
     return {
       id: postId,
@@ -611,6 +613,84 @@ export class GenerationService {
       updatedAt: createdAt,
       generationMeta: meta
     };
+  }
+
+  async reviewPost(sessionId: string, postId: string): Promise<BlogReviewResult> {
+    const post = this.databaseService.connection
+      .prepare("SELECT title, body, generation_meta_json FROM blog_posts WHERE id = ? AND session_id = ?")
+      .get(postId, sessionId) as { title: string; body: string; generation_meta_json: string | null } | undefined;
+
+    if (!post) {
+      throw new Error(`Post ${postId} not found in session ${sessionId}`);
+    }
+
+    const meta = this.safeParseMetadata(post.generation_meta_json);
+    const providerParam = typeof meta.provider === "string" ? meta.provider : "mock";
+    const allowedProviders: AgentProvider[] = ["mock", "claude", "codex", "opencode", "gemini"];
+    const provider = allowedProviders.includes(providerParam as AgentProvider) ? (providerParam as AgentProvider) : "mock";
+    const tone = typeof meta.tone === "string" ? meta.tone : "friendly";
+    const format = typeof meta.format === "string" ? meta.format : "newsletter";
+    const userInstruction = typeof meta.userInstruction === "string" ? meta.userInstruction : "";
+
+    const reviewRulesPath = "rules/blog-review.md";
+    const reviewGuidePath = "review-guide/blog.md";
+
+    const prompt = [
+      "너는 블로그 글을 리뷰하고 교정본을 제안하는 전문 에디터다.",
+      "다음 [RULES]와 [FORMAT] 파일의 내용을 주어진 경로에서 읽고, 그 내용을 엄격하게 따르며 리뷰를 진행해라.",
+      "출력은 반드시 JSON 객체 하나만 반환한다. JSON 외 텍스트는 금지한다.",
+      "",
+      "[RULES FILE PATH]",
+      reviewRulesPath,
+      "",
+      "[FORMAT FILE PATH]",
+      reviewGuidePath,
+      "",
+      "응답 스키마:",
+      "{",
+      "  \"reviewComment\": string, // 리뷰 가이드 포맷의 마크다운 문자열",
+      "  \"suggestions\": [",
+      "    { \"originalText\": string, \"suggestedText\": string, \"reason\": string }",
+      "  ]",
+      "}",
+      "",
+      "[SESSION/POST METADATA]",
+      `- Tone: ${tone}`,
+      `- Format: ${format}`,
+      `- User Instruction: ${userInstruction || "(none)"}`,
+      "",
+      "[POST TITLE]",
+      post.title,
+      "",
+      "[POST BODY]",
+      post.body
+    ].join("\n");
+
+    let responseText = "";
+    if (provider === "mock") {
+      responseText = JSON.stringify({
+        reviewComment: "Mock Review Comment\n\n- 이 글은 테스트 데이터입니다.",
+        suggestions: [
+          { originalText: "테스트", suggestedText: "확인", reason: "더 나은 표현" }
+        ]
+      });
+    } else {
+      responseText = await this.agentRunnerService.run(prompt, provider);
+    }
+
+    let parsed: any;
+    try {
+      const candidates = this.extractJsonCandidates(responseText);
+      parsed = JSON.parse(candidates.length > 0 ? candidates[0] : responseText);
+    } catch {
+      throw new Error("Failed to parse agent response as JSON.");
+    }
+
+    if (!parsed || typeof parsed !== "object" || !parsed.reviewComment || !Array.isArray(parsed.suggestions)) {
+      throw new Error("Agent response does not match BlogReviewResult schema.");
+    }
+
+    return parsed as BlogReviewResult;
   }
 
   private buildPrompt(

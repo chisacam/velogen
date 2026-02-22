@@ -6,7 +6,8 @@ import type {
   GenerationClarificationAnswer,
   GenerationClarificationContext,
   GenerationClarificationResponse,
-  SourceSummary
+  SourceSummary,
+  BlogReviewResult
 } from "@velogen/shared";
 import { API_BASE, apiRequest } from "../../lib/api-client";
 import { PERIOD_OPTIONS } from "./constants";
@@ -89,6 +90,8 @@ export function useWorkspaceController() {
   const [clarificationAnswers, setClarificationAnswers] = useState<GenerationClarificationAnswer[]>([]);
   const [clarificationConversation, setClarificationConversation] = useState<GenerationConversationTurn[]>([]);
   const [clarificationConversationByThread, setClarificationConversationByThread] = useState<Record<string, GenerationConversationTurn[]>>({});
+  const [isReviewing, setIsReviewing] = useState(false);
+  const [reviewResult, setReviewResult] = useState<BlogReviewResult | null>(null);
   const [activeConversationThreadKey, setActiveConversationThreadKey] = useState("");
   const [revisions, setRevisions] = useState<PostRevision[]>([]);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -1017,6 +1020,53 @@ export function useWorkspaceController() {
     setPanel
   ]);
 
+  const onReviewPost = useCallback(async (): Promise<void> => {
+    if (!selectedSessionId || !selectedPostId) {
+      pushToast("Select a post first to review", "error");
+      return;
+    }
+
+    setIsReviewing(true);
+    setStatus("Reviewing your post...");
+    pushToast("Started post review", "info");
+
+    try {
+      const result = await apiRequest<BlogReviewResult>(`/sessions/${selectedSessionId}/generate/${selectedPostId}/review`, {
+        method: "POST"
+      });
+
+      setReviewResult(result);
+      setStatus("Post review completed");
+      pushToast("Review completed", "success");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to review post";
+      setStatus(message);
+      pushToast(message, "error");
+    } finally {
+      setIsReviewing(false);
+    }
+  }, [selectedSessionId, selectedPostId, pushToast]);
+
+  const onApplySuggestion = useCallback((suggestionIndex: number): void => {
+    if (!reviewResult) {
+      return;
+    }
+    const suggestion = reviewResult.suggestions[suggestionIndex];
+    if (!suggestion) {
+      return;
+    }
+
+    const newDraft = postBodyDraft.replace(suggestion.originalText, suggestion.suggestedText);
+
+    if (newDraft === postBodyDraft) {
+      pushToast("Could not find the exact original text. The text may have already been changed.", "error");
+      return;
+    }
+
+    setPostBodyDraft(newDraft);
+    pushToast("Suggestion applied to original text", "success");
+  }, [reviewResult, postBodyDraft, pushToast]);
+
   const onExportMarkdown = (): void => {
     if (!postBodyDraft) {
       pushToast("No content to export", "error");
@@ -1089,6 +1139,8 @@ export function useWorkspaceController() {
     isGenerating,
     isGeneratingImages,
     autoGenerateImages,
+    isReviewing,
+    reviewResult,
     flashHeading,
     flashCitation,
     postTitleDraft,
@@ -1160,6 +1212,9 @@ export function useWorkspaceController() {
     onRetryAfterClarification: retryAfterClarification,
     onClarificationAnswerChange,
     onClearClarification: clearClarification,
+    onReviewPost,
+    onApplySuggestion,
+    setReviewResult,
     onSavePost,
     onExportMarkdown,
     onLoadRevision,
