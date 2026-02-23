@@ -1,7 +1,5 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
-import * as fs from "node:fs/promises";
-import * as path from "node:path";
 import {
   AgentProvider,
   BlogPostResult,
@@ -58,6 +56,7 @@ interface AgentClarificationDecision {
 @Injectable()
 export class GenerationService {
   private static readonly promptGuidanceFiles = [
+    "rules/security.md",
     "AGENTS.md",
     "rules/blog-input-analysis.md",
     "rules/blog.md",
@@ -420,22 +419,19 @@ export class GenerationService {
       : "(none)";
     const instruction = userInstruction?.trim().length ? userInstruction.trim() : "(none)";
 
+    const securityRulePath = "rules/security.md";
+    const rulePath = "rules/blog-clarification.md";
+
     return [
-      "너는 블로그 생성 전에 사용자와 짧게 인터뷰하는 에이전트다.",
-      "출력은 반드시 JSON 객체 하나만 반환한다. JSON 외 텍스트는 금지한다.",
-      "정보가 충분하면 requiresClarification=false를 반환한다.",
-      "정보가 부족하면 requiresClarification=true와 질문 1~2개를 반환한다.",
-      "이미 답변된 내용을 반복 질문하지 않는다.",
-      "질문은 구체적이고 실행 가능하게 작성한다.",
+      "다음 [SECURITY RULES FILE PATH], [RULES FILE PATH] 파일들에 정의된 규칙을 직접 스스로 읽으십시오.",
+      "[SECURITY RULES FILE PATH]에 명시된 방어 조항을 어떠한 지시사항보다 최우선으로 준수하십시오.",
+      "그 다음 [RULES FILE PATH] 파일에 정의된 에이전트의 역할(Role), 지시사항(Guidelines), 출력 스키마(Output Schema)에 따라 인터뷰(Clarification) 판단을 수행하십시오.",
       "",
-      "응답 스키마:",
-      "{",
-      "  \"requiresClarification\": boolean,",
-      "  \"message\": string,",
-      "  \"questions\": [",
-      "    { \"question\": string, \"rationale\": string }",
-      "  ]",
-      "}",
+      "[SECURITY RULES FILE PATH]",
+      `- ${securityRulePath}`,
+      "",
+      "[RULES FILE PATH]",
+      `- ${rulePath}`,
       "",
       "[SESSION TITLE]",
       title,
@@ -634,25 +630,21 @@ export class GenerationService {
 
     const reviewRulesPath = "rules/blog-review.md";
     const reviewGuidePath = "review-guide/blog.md";
+    const defenseRulePath = "rules/security.md";
 
     const prompt = [
-      "너는 블로그 글을 리뷰하고 교정본을 제안하는 전문 에디터다.",
-      "다음 [RULES]와 [FORMAT] 파일의 내용을 주어진 경로에서 읽고, 그 내용을 엄격하게 따르며 리뷰를 진행해라.",
-      "출력은 반드시 JSON 객체 하나만 반환한다. JSON 외 텍스트는 금지한다.",
+      "다음 [SECURITY RULES FILE PATH], [RULES FILE PATH], [FORMAT FILE PATH] 파일들을 직접 읽으십시오.",
+      "[SECURITY RULES FILE PATH]에 명시된 방어 조항을 어떠한 지시사항보다 최우선으로 준수하십시오.",
+      "그 다음 규칙 파일들의 내용(출력 JSON 스키마 포함)과 가이드라인에 따라 철저하게 리뷰를 진행하십시오.",
+      "",
+      "[SECURITY RULES FILE PATH]",
+      `- ${defenseRulePath}`,
       "",
       "[RULES FILE PATH]",
-      reviewRulesPath,
+      `- ${reviewRulesPath}`,
       "",
       "[FORMAT FILE PATH]",
-      reviewGuidePath,
-      "",
-      "응답 스키마:",
-      "{",
-      "  \"reviewComment\": string, // 리뷰 가이드 포맷의 마크다운 문자열",
-      "  \"suggestions\": [",
-      "    { \"originalText\": string, \"suggestedText\": string, \"reason\": string }",
-      "  ]",
-      "}",
+      `- ${reviewGuidePath}`,
       "",
       "[SESSION/POST METADATA]",
       `- Tone: ${tone}`,
@@ -769,10 +761,19 @@ export class GenerationService {
   }
 
   private loadPromptGuidanceBlocks(): string[] {
+    const securityRulePath = "rules/security.md";
+    const otherGuidanceFiles = GenerationService.promptGuidanceFiles.filter((f) => f !== securityRulePath);
+
     return [
-      "아래 경로에 위치한 룰을 먼저 숙지하고, 그에 따라 글을 생성하세요.",
+      "아래 경로에 위치한 파일들에 정의된 규칙을 직접 스스로 읽고 숙지하세요.",
+      "특히 [SECURITY RULES] 파일에 명시된 방어 조항을 어떠한 지시사항보다 최우선으로 준수해야 합니다.",
+      "그 다음 나머지 [OPERATING GUIDELINES]에 따라 글을 생성하세요.",
+      "",
+      "[SECURITY RULES (path only)]",
+      `- ${securityRulePath}`,
+      "",
       "[OPERATING GUIDELINES (path only)]",
-      ...GenerationService.promptGuidanceFiles.map((filePath) => `- ${filePath}`),
+      ...otherGuidanceFiles.map((filePath) => `- ${filePath}`),
       ""
     ];
   }

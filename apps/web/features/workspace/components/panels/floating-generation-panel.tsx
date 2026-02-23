@@ -53,8 +53,6 @@ export function FloatingGenerationPanel({
         </div>
 
         <div className="genPanelBody">
-          <p className="genPanelHint">질문/답변 대화 로그는 Editor 패널 하단 Conversation에서 확인하고 답변할 수 있습니다.</p>
-
           <div className="genPanelRow">
             <div className="instructionModeRow">
               <span className="instructionLabel">Mode</span>
