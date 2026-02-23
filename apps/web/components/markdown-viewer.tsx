@@ -4,6 +4,7 @@ import ReactMarkdown from "react-markdown";
 import rehypeSanitize from "rehype-sanitize";
 import remarkGfm from "remark-gfm";
 import type { RefObject, UIEvent } from "react";
+import styles from "./markdown.module.css";
 
 interface MarkdownViewerProps {
   content: string;
@@ -11,6 +12,7 @@ interface MarkdownViewerProps {
   flashCitation?: boolean;
   viewerRef?: RefObject<HTMLDivElement | null>;
   onScroll?: (event: UIEvent<HTMLDivElement>) => void;
+  className?: string;
 }
 
 function decorateCitations(markdown: string): string {
@@ -34,29 +36,30 @@ export function MarkdownViewer({
   flashHeading = false,
   flashCitation = false,
   viewerRef,
-  onScroll
+  onScroll,
+  className
 }: MarkdownViewerProps) {
   const decorated = decorateCitations(content);
   return (
     <div
       ref={viewerRef}
       onScroll={onScroll}
-      className={`markdown-viewer ${flashHeading ? "flash-heading" : ""} ${flashCitation ? "flash-citation" : ""}`.trim()}
+      className={`${styles.viewer} ${flashHeading ? styles.flashHeading : ""} ${flashCitation ? styles.flashCitation : ""} ${className || ""}`.trim()}
     >
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[rehypeSanitize]}
         components={{
-          h1: ({ children }) => <h1 className="md-heading md-h1">{children}</h1>,
-          h2: ({ children }) => <h2 className="md-heading md-h2">{children}</h2>,
-          h3: ({ children }) => <h3 className="md-heading md-h3">{children}</h3>,
-          h4: ({ children }) => <h4 className="md-heading md-h4">{children}</h4>,
-          h5: ({ children }) => <h5 className="md-heading md-h5">{children}</h5>,
-          h6: ({ children }) => <h6 className="md-heading md-h6">{children}</h6>,
-          code: ({ children, className }) => {
+          h1: ({ children }) => <h1 className={styles.heading}>{children}</h1>,
+          h2: ({ children }) => <h2 className={styles.heading}>{children}</h2>,
+          h3: ({ children }) => <h3 className={styles.heading}>{children}</h3>,
+          h4: ({ children }) => <h4 className={styles.heading}>{children}</h4>,
+          h5: ({ children }) => <h5 className={styles.heading}>{children}</h5>,
+          h6: ({ children }) => <h6 className={styles.heading}>{children}</h6>,
+          code: ({ children, className: codeClassName }) => {
             const text = String(children ?? "");
             const isCitation = /^\[C\d+\]$/.test(text);
-            const cls = isCitation ? "md-citation" : className;
+            const cls = isCitation ? styles.citation : codeClassName;
             return <code className={cls}>{children}</code>;
           }
         }}

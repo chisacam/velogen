@@ -20,11 +20,13 @@ type PeriodOption = {
   value: string;
 };
 
-export type WorkspaceSidebarProps = GenerationPanelProps & {
+export type WorkspaceSidebarProps = {
   activePanel: WorkspacePanel;
   navItems: WorkspaceNavItem[];
   sessionSources: SessionSource[];
   posts: PostSummary[];
+  generatedPost: GeneratedPost | null;
+  selectedPostId: string;
   revisions: PostRevision[];
   onLoadRevision: (revisionId: string) => Promise<void>;
   selectedSession: SessionSummary | null;
@@ -89,12 +91,9 @@ export type SourcesPanelProps = {
   onFormatSourceDisplay: (source: SourceSummary) => string;
 };
 
-export type EditorPanelProps = {
-  generatedPost: GeneratedPost | null;
-  isGenerating: boolean;
+export type EditorPanelProps = GenerationPanelProps & {
   editorMode: EditorMode;
   setEditorMode: (mode: EditorMode) => void;
-  postBodyDraft: string;
   setPostBodyDraft: (body: string) => void;
   flashHeading: boolean;
   flashCitation: boolean;
@@ -104,10 +103,6 @@ export type EditorPanelProps = {
   onClarificationAnswerChange: (questionId: string, question: string, answer: string) => void;
   onRetryAfterClarification: (clarificationDraftAnswers?: GenerationClarificationAnswer[]) => Promise<void>;
   onClearClarification: () => void;
-  tone: string;
-  setTone: (tone: string) => void;
-  format: string;
-  setFormat: (format: string) => void;
   isReviewing: boolean;
   reviewResult: BlogReviewResult | null;
   onReviewPost: () => Promise<void>;

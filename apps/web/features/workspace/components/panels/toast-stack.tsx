@@ -1,4 +1,5 @@
 import { type ToastStackProps } from "./panel-types";
+import commonStyles from "./common-panel.module.css";
 
 export function ToastStack({ toasts }: ToastStackProps) {
   if (toasts.length === 0) {
@@ -6,9 +7,9 @@ export function ToastStack({ toasts }: ToastStackProps) {
   }
 
   return (
-    <div className="toastStack">
+    <div className={commonStyles.toastStack}>
       {toasts.map((toast) => (
-        <div key={toast.id} className={`toastItem ${toast.kind}`}>
+        <div key={toast.id} className={`${commonStyles.toastItem} ${commonStyles[toast.kind] || ''}`}>
           {toast.message}
         </div>
       ))}

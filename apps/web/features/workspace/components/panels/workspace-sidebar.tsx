@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { type WorkspaceSidebarProps } from "./panel-types";
 
-import { FloatingGenerationPanel } from "./floating-generation-panel";
+import styles from "./workspace-sidebar.module.css";
+import commonStyles from "./common-panel.module.css";
 
 export function WorkspaceSidebar({
   activePanel,
@@ -13,29 +14,28 @@ export function WorkspaceSidebar({
   revisions,
   onLoadRevision,
   selectedSession,
-  setPanel,
-  ...genProps
+  setPanel
 }: WorkspaceSidebarProps) {
   const [isInstructionOpen, setIsInstructionOpen] = useState(false);
 
   return (
-    <aside className="sideNav card">
-      <div className="sideNavScrollArea">
-        <div className="brandBlock">
+    <aside className={`${styles.sideNav} card`}>
+      <div className={styles.sideNavScrollArea}>
+        <div className={styles.brandBlock}>
           <p className="eyebrow">velogen</p>
           <h1>Blog Studio</h1>
         </div>
 
-        <nav className="menuList">
+        <nav className={styles.menuList}>
           {navItems.map((item) => (
             <button
               key={item.key}
               type="button"
-              className={activePanel === item.key ? "menuItem active" : "menuItem"}
+              className={activePanel === item.key ? `${styles.menuItem} ${styles.active}` : styles.menuItem}
               aria-current={activePanel === item.key ? "page" : undefined}
               onClick={() => setPanel(item.key)}
             >
-              <span className="menuIcon" aria-hidden="true">
+              <span className={styles.menuIcon} aria-hidden="true">
                 {item.icon}
               </span>
               <span>{item.label}</span>
@@ -43,56 +43,56 @@ export function WorkspaceSidebar({
           ))}
         </nav>
 
-        <div className="sideMeta">
-          <section className="sideMetaSection">
+        <div className={styles.sideMeta}>
+          <section className={styles.sideMetaSection}>
             <strong>Active Session</strong>
-            <p className="sideMetaValue">{selectedSession?.title ?? "No session selected"}</p>
+            <p className={styles.sideMetaValue}>{selectedSession?.title ?? "No session selected"}</p>
           </section>
 
-          <section className="sideMetaSection">
+          <section className={styles.sideMetaSection}>
             <strong>Attached Sources</strong>
             {sessionSources.length > 0 ? (
-              <ul className="sideSourceList">
+              <ul className={styles.sideSourceList}>
                 {sessionSources.map((source) => (
                   <li key={source.sourceId}>{source.name}</li>
                 ))}
               </ul>
             ) : (
-              <p className="sideMetaMuted">No sources attached</p>
+              <p className={styles.sideMetaMuted}>No sources attached</p>
             )}
           </section>
 
-          <section className="sideMetaSection sideStatsRow">
+          <section className={`${styles.sideMetaSection} ${styles.sideStatsRow}`}>
             <div>
               <strong>Generated Posts</strong>
-              <p className="sideMetaValue">{posts.length}</p>
+              <p className={styles.sideMetaValue}>{posts.length}</p>
             </div>
             <div>
               <strong>Selected Draft</strong>
-              <p className="sideMetaMuted">{generatedPost?.title ?? (selectedPostId || "No draft selected")}</p>
+              <p className={styles.sideMetaMuted}>{generatedPost?.title ?? (selectedPostId || "No draft selected")}</p>
             </div>
           </section>
 
-          <section className="sideMetaSection">
+          <section className={styles.sideMetaSection}>
             <strong>Generation Context</strong>
             {generatedPost?.generationMeta ? (
-              <div className="sideContextBlock">
+              <div className={styles.sideContextBlock}>
                 <p><span>Provider</span><span>{generatedPost.generationMeta.provider}</span></p>
                 <p><span>Tone</span><span>{generatedPost.generationMeta.tone ?? "(none)"}</span></p>
                 <p><span>Format</span><span>{generatedPost.generationMeta.format ?? "(none)"}</span></p>
                 <p><span>Refine</span><span>{generatedPost.generationMeta.refinePostId ?? "new draft"}</span></p>
                 <p><span>Sources</span><span>{generatedPost.generationMeta.sources.length}</span></p>
                 {generatedPost.generationMeta?.userInstruction && generatedPost.generationMeta.userInstruction.trim() !== "" ? (
-                  <div className="sideInstructionWrap">
+                  <div className={styles.sideInstructionWrap}>
                     <button
                       type="button"
-                      className="sideInstructionToggle"
+                      className={styles.sideInstructionToggle}
                       onClick={() => setIsInstructionOpen((prev) => !prev)}
                     >
                       {isInstructionOpen ? "Hide Instruction" : "View Instruction"}
                     </button>
                     {isInstructionOpen && (
-                      <div className="sideInstructionContent">
+                      <div className={styles.sideInstructionContent}>
                         {generatedPost.generationMeta.userInstruction}
                       </div>
                     )}
@@ -100,23 +100,23 @@ export function WorkspaceSidebar({
                 ) : null}
               </div>
             ) : (
-              <p className="sideMetaMuted">No saved generation context</p>
+              <p className={styles.sideMetaMuted}>No saved generation context</p>
             )}
           </section>
 
-          <section className="sideMetaSection">
+          <section className={styles.sideMetaSection}>
             <strong>Revision History</strong>
             {revisions.length > 0 ? (
-              <ul className="sideRevisionList">
+              <ul className={styles.sideRevisionList}>
                 {revisions.map((revision) => (
                   <li key={revision.id}>
-                    <div className="revHeader">
+                    <div className={styles.revHeader}>
                       <span>v{revision.version}</span>
-                      <button type="button" className="tinyButton secondary" onClick={() => void onLoadRevision(revision.id)}>
+                      <button type="button" className={`secondary ${commonStyles.tinyButton}`} onClick={() => void onLoadRevision(revision.id)}>
                         Load
                       </button>
                     </div>
-                    <div className="revMeta">
+                    <div className={styles.revMeta}>
                       <span>{revision.source}</span>
                       <small>
                         {new Date(revision.createdAt).toLocaleDateString()} {new Date(revision.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -126,14 +126,10 @@ export function WorkspaceSidebar({
                 ))}
               </ul>
             ) : (
-              <p className="sideMetaMuted">No revisions yet</p>
+              <p className={styles.sideMetaMuted}>No revisions yet</p>
             )}
           </section>
         </div>
-      </div>
-
-      <div className="sideGenPanelWrap">
-        <FloatingGenerationPanel {...genProps} selectedPostId={selectedPostId} generatedPost={generatedPost} />
       </div>
     </aside>
   );

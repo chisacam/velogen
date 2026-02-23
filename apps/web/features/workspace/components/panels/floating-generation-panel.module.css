@@ -1,0 +1,380 @@
+/* State: closed — panel hidden, button normal */
+.genPanelFloating {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: var(--space-2);
+}
+
+.genPanelCollapsed {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 20px;
+    border-radius: 99px;
+    background: #ffffffda;
+    border: 1px solid #2f505924;
+    box-shadow: 0 12px 32px #16323a15;
+    color: var(--ink);
+    font-weight: 700;
+    font-size: 0.9rem;
+    cursor: pointer;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease, filter 0.3s ease, filter 0.2s ease, opacity 0.2s ease;
+}
+
+.genPanelCollapsed:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 16px 40px #16323a20;
+}
+
+.genPanelCollapsed.generating {
+    background: linear-gradient(130deg, var(--accent), var(--accent-2));
+    color: #fff;
+    border-color: transparent;
+    animation: pulseGen 2.5s infinite;
+}
+
+.genPanelBtnIcon {
+    font-size: 1.2rem;
+    line-height: 1;
+}
+
+.genPanelExpanded {
+    width: 440px;
+    background: #fffffff2;
+    border: 1px solid #2f505924;
+    border-radius: var(--radius-xl);
+    box-shadow: 0 20px 50px #0a2c3820;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transform-origin: bottom right;
+    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
+}
+
+.closed .genPanelExpanded {
+    opacity: 0;
+    transform: translateY(16px) scale(0.96);
+    pointer-events: none;
+}
+
+.closed .genPanelCollapsed {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* State: open — panel visible, button still visible */
+.open .genPanelExpanded {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    pointer-events: auto;
+}
+
+.open .genPanelCollapsed {
+    opacity: 1;
+    filter: brightness(1.1);
+    pointer-events: auto;
+}
+
+.genPanelHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    border-bottom: 1px solid #2f505915;
+    background: linear-gradient(135deg, #f0f8ff 0%, #e8f5e9 100%);
+}
+
+.genPanelTitle {
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: var(--ink);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.genPanelClose {
+    width: 30px;
+    height: 30px;
+    border-radius: var(--radius-sm);
+    background: #ffffff90;
+    border: 1px solid #2f505920;
+    color: var(--muted);
+    font-size: 1rem;
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    padding: 0;
+    transition: background-color var(--duration-fast) ease, color var(--duration-fast) ease, border-color var(--duration-fast) ease;
+}
+
+.genPanelClose:hover {
+    background: #fff;
+    color: var(--ink);
+    transform: none;
+    box-shadow: none;
+}
+
+.genPanelBody {
+    padding: 16px 18px;
+    display: grid;
+    gap: var(--space-4);
+}
+
+.genPanelHint {
+    margin: 0;
+    font-size: 0.8rem;
+    color: var(--muted);
+    line-height: 1.4;
+}
+
+.genPanelRow {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    align-items: stretch;
+}
+
+.inputsRow {
+    align-items: flex-start;
+}
+
+.generationFieldWrap {
+    display: grid;
+    gap: 6px;
+    flex: 1;
+    min-width: 200px;
+    margin-bottom: 0;
+}
+
+.instructionModeRow {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-2);
+}
+
+.instructionLabel {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--muted);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    min-width: 48px;
+}
+
+.genPanelActions {
+    display: flex;
+    gap: var(--space-2);
+    justify-content: stretch;
+    padding: 0 18px 16px;
+}
+
+/* ── Mode Toggle ── */
+
+.instructionBar {
+    display: grid;
+    gap: var(--space-3);
+}
+
+/* .instructionModeRow overridden above */
+
+.autoImageToggle {
+    flex: 1;
+}
+
+.optionalTag {
+    font-weight: 400;
+    font-size: 0.78rem;
+    text-transform: none;
+    letter-spacing: 0;
+    color: #8aabb0;
+}
+
+.modeToggleGroup {
+    display: flex;
+    gap: var(--space-1);
+}
+
+.modeToggle {
+    padding: 6px 14px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    border-radius: var(--radius-sm);
+    background: #ffffffd0;
+    color: var(--muted);
+    border: 1px solid #2f505930;
+    cursor: pointer;
+    transition: background-color var(--duration-fast) ease, border-color var(--duration-fast) ease, color var(--duration-fast) ease;
+}
+
+.modeToggle:hover:not(:disabled) {
+    background: #fff;
+    border-color: var(--accent);
+    color: var(--accent);
+    transform: none;
+    box-shadow: none;
+}
+
+.modeToggle.active {
+    background: linear-gradient(130deg, var(--accent), var(--accent-2));
+    color: #fff;
+    border-color: transparent;
+}
+
+.modeToggle:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.refineBadge {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--accent);
+    background: #007a7415;
+    border: 1px solid #007a7430;
+    border-radius: var(--radius-sm);
+    padding: 3px 10px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 240px;
+}
+
+.instructionInputWrap {
+    display: grid;
+    gap: 6px;
+    margin-bottom: 0;
+}
+
+.instructionTextarea {
+    resize: vertical;
+    min-height: 60px;
+    font-size: 0.9rem;
+    border-radius: var(--radius-md);
+    background: #ffffffd9;
+    border: 1px solid #2f505924;
+    transition: border-color var(--duration-fast);
+}
+
+.instructionTextarea:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px #007a7418;
+}
+
+.instructionTextarea:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* ── Loading Spinner ── */
+
+.btnSpinner {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.spinnerDots {
+    display: inline-flex;
+    gap: var(--space-1);
+    align-items: center;
+}
+
+.spinnerDots span {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: currentColor;
+    animation: dotBounce 1.2s ease-in-out infinite;
+}
+
+.spinnerDots span:nth-child(2) {
+    animation-delay: 0.15s;
+}
+
+.spinnerDots span:nth-child(3) {
+    animation-delay: 0.3s;
+}
+
+.collapsedSpinner {
+    width: 28px;
+    height: 28px;
+    border: 3px solid rgba(255, 255, 255, 0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spinRotate 0.8s linear infinite;
+}
+
+@keyframes spinRotate {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes pulseGen {
+
+    0%,
+    100% {
+        box-shadow: 0 8px 28px #007a7445;
+    }
+
+    50% {
+        box-shadow: 0 8px 40px #007a7470;
+    }
+}
+
+@keyframes dotBounce {
+
+    0%,
+    80%,
+    100% {
+        opacity: 0.3;
+        transform: scale(0.8);
+    }
+
+    40% {
+        opacity: 1;
+        transform: scale(1.2);
+    }
+}
+
+@media (max-width: 900px) {
+    .genPanelFloating {
+        position: static;
+        /* Make it inline */
+        align-items: stretch;
+        /* Stretch to fill container */
+        width: 100%;
+        margin-top: var(--space-4);
+        /* Add space from other sidebar items */
+    }
+
+    .genPanelCollapsed {
+        justify-content: center;
+        /* Center button text */
+    }
+
+    .genPanelExpanded {
+        width: 100%;
+        max-width: none;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+    .genPanelCollapsed,
+    .genPanelExpanded {
+        transition: none !important;
+    }
+}

@@ -4,6 +4,9 @@ import { MarkdownViewer } from "../../../../components/markdown-viewer";
 import { type EditorPanelProps } from "./panel-types";
 import { GenerationConversationPanel } from "./generation-conversation-panel";
 import { ReviewPanel } from "./review-panel";
+import { FloatingGenerationPanel } from "./floating-generation-panel";
+import styles from "./editor-panel.module.css";
+import commonStyles from "./common-panel.module.css";
 
 export function EditorPanel({
   generatedPost,
@@ -28,13 +31,13 @@ export function EditorPanel({
   reviewResult,
   onReviewPost,
   onApplySuggestion,
-  setReviewResult
+  setReviewResult,
+  ...genProps
 }: EditorPanelProps) {
   const hasConversationPanel = Boolean(clarification) || clarificationConversation.length > 0;
-  const hasReviewPanel = isReviewing || Boolean(reviewResult);
-  const isRightPanelOpen = hasConversationPanel || hasReviewPanel;
 
   const [isConversationOpen, setIsConversationOpen] = useState<boolean>(Boolean(clarification));
+  const [isRightSidebarOpen, setIsRightSidebarOpen] = useState<boolean>(true);
 
   const editorRef = useRef<HTMLTextAreaElement | null>(null);
   const viewerRef = useRef<HTMLDivElement | null>(null);
@@ -80,17 +83,17 @@ export function EditorPanel({
   const hasDraftContent = postBodyDraft.trim().length > 0 || generatedPost !== null;
 
   return (
-    <div className="workspaceBody card editorWorkspace">
-      <div className="editorMainColumn">
+    <div className={`${commonStyles.workspaceBody} ${commonStyles.card} ${commonStyles.editorWorkspace} `}>
+      <div className={commonStyles.editorMainColumn}>
         {hasDraftContent ? (
           <>
-            <div className="editorToolbar">
-              <div className="viewModeTabs">
+            <div className={styles.editorToolbar}>
+              <div className={styles.viewModeTabs}>
                 {(["split", "edit", "preview"] as const).map((mode) => (
                   <button
                     key={mode}
                     type="button"
-                    className={`viewModeTab ${editorMode === mode ? "active" : ""}`}
+                    className={`${styles.viewModeTab} ${editorMode === mode ? styles.active : ""} `}
                     aria-pressed={editorMode === mode}
                     onClick={() => setEditorMode(mode)}
                   >
@@ -102,21 +105,22 @@ export function EditorPanel({
               <div className="editorActions">
                 <button
                   type="button"
-                  className="secondary tinyButton"
-                  onClick={onReviewPost}
-                  disabled={isReviewing}
+                  className={`secondary ${commonStyles.tinyButton} `}
+                  onClick={() => setIsRightSidebarOpen(!isRightSidebarOpen)}
+                  title="오른쪽 사이드바 토글"
                 >
-                  {isReviewing ? "리뷰 중..." : "Review Draft"}
+                  {isRightSidebarOpen ? "➡️ Hide Panel" : "⬅️ Show Panel"}
                 </button>
               </div>
             </div>
 
             <div
-              className={`mdPane mode-${editorMode} editorPaneConstrained ${!isRightPanelOpen ? "expanded" : ""}`}
+              className={`${styles.mdPane} ${editorMode === "split" ? styles.mdPaneSplit : ""} ${!isRightSidebarOpen ? styles.expanded : ""} `}
             >
               {editorMode !== "preview" ? (
                 <MarkdownEditor
                   editorRef={editorRef}
+                  className={styles.constrainedEditor}
                   onScroll={(event) => {
                     if (editorMode !== "split" || !viewerRef.current) {
                       return;
@@ -130,6 +134,7 @@ export function EditorPanel({
               {editorMode !== "edit" ? (
                 <MarkdownViewer
                   viewerRef={viewerRef}
+                  className={styles.constrainedViewer}
                   onScroll={(event) => {
                     if (editorMode !== "split" || !editorRef.current) {
                       return;
@@ -144,25 +149,24 @@ export function EditorPanel({
             </div>
           </>
         ) : clarification ? (
-          <p className="editorEmptyHint">에이전트 질문에 답변한 뒤 계속 생성 버튼을 눌러 초안을 이어서 만드세요.</p>
+          <p className={commonStyles.editorEmptyHint}>에이전트 질문에 답변한 뒤 계속 생성 버튼을 눌러 초안을 이어서 만드세요.</p>
         ) : isGenerating ? (
-          <p className="editorEmptyHint">초안 생성을 준비 중입니다...</p>
+          <p className={commonStyles.editorEmptyHint}>초안 생성을 준비 중입니다...</p>
         ) : (
           <p>생성된 글이 없습니다. 아래 ⚙ 버튼을 눌러 Generate Blog를 실행하거나 Posts에서 글을 선택하세요.</p>
         )}
       </div>
 
-      {isRightPanelOpen && (
-        <div className="editorRightSidebar">
-          {hasReviewPanel && (
-            <ReviewPanel
-              isReviewing={isReviewing}
-              reviewResult={reviewResult}
-              onApplySuggestion={onApplySuggestion}
-              onClose={() => setReviewResult(null)}
-              postBodyDraft={postBodyDraft}
-            />
-          )}
+      {isRightSidebarOpen && (
+        <div className={commonStyles.editorRightSidebar}>
+          <ReviewPanel
+            isReviewing={isReviewing}
+            reviewResult={reviewResult}
+            onReviewPost={onReviewPost}
+            onApplySuggestion={onApplySuggestion}
+            onClose={() => setReviewResult(null)}
+            postBodyDraft={postBodyDraft}
+          />
           {hasConversationPanel && (
             <GenerationConversationPanel
               clarification={clarification}
@@ -178,6 +182,16 @@ export function EditorPanel({
               onOpenStateChange={setIsConversationOpen}
             />
           )}
+          <FloatingGenerationPanel
+            {...genProps}
+            isGenerating={isGenerating}
+            postBodyDraft={postBodyDraft}
+            tone={tone}
+            setTone={setTone}
+            format={format}
+            setFormat={setFormat}
+            generatedPost={generatedPost}
+          />
         </div>
       )}
     </div>

@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { type PostsPanelProps } from "./panel-types";
+import styles from "./posts-panel.module.css";
+import commonStyles from "./common-panel.module.css";
 
 const POSTS_PER_PAGE = 10;
 
@@ -19,26 +21,26 @@ export function PostsPanel({ posts, selectPost }: PostsPanelProps) {
   };
 
   return (
-    <div className="workspaceBody card postsPanelContainer">
+    <div className={`workspaceBody card ${styles.postsPanelContainer}`}>
       <h3>Generated Posts</h3>
       {posts.length === 0 ? <p>No posts yet.</p> : null}
       {posts.length > 0 ? (
         <>
-          <div className="postList">
+          <div className={styles.postList}>
             {currentPosts.map((post) => {
               const dateObj = new Date(post.updatedAt);
               const formattedDate = `${dateObj.toLocaleDateString()} ${dateObj.getHours().toString().padStart(2, '0')}:${dateObj.getMinutes().toString().padStart(2, '0')}`;
 
               return (
-                <div key={post.id} className="postListItem" onClick={() => selectPost(post.id)}>
-                  <div className="postListItemLeft">
-                    <span className="postListItemTitle" title={post.title}>
+                <div key={post.id} className={styles.postListItem} onClick={() => selectPost(post.id)}>
+                  <div className={styles.postListItemLeft}>
+                    <span className={styles.postListItemTitle} title={post.title}>
                       {post.title}
                     </span>
                   </div>
-                  <div className="postListItemRight">
-                    <span className={`postListItemBadge ${post.status}`}>{post.status}</span>
-                    <span className="postListItemMeta">
+                  <div className={styles.postListItemRight}>
+                    <span className={`${styles.postListItemBadge} ${styles[post.status] || ''}`}>{post.status}</span>
+                    <span className={styles.postListItemMeta}>
                       {post.provider} · {formattedDate}
                     </span>
                   </div>
@@ -48,19 +50,19 @@ export function PostsPanel({ posts, selectPost }: PostsPanelProps) {
           </div>
 
           {totalPages > 1 && (
-            <div className="paginationControls">
+            <div className={styles.paginationControls}>
               <button
-                className="ghost tinyButton"
+                className={`ghost ${commonStyles.tinyButton}`}
                 onClick={handlePrevPage}
                 disabled={currentPage === 1}
               >
                 Previous
               </button>
-              <span className="paginationInfo">
+              <span className={styles.paginationInfo}>
                 Page {currentPage} of {totalPages}
               </span>
               <button
-                className="ghost tinyButton"
+                className={`ghost ${commonStyles.tinyButton}`}
                 onClick={handleNextPage}
                 disabled={currentPage === totalPages}
               >

@@ -4,6 +4,8 @@ import type {
   GenerationClarificationResponse
 } from "@velogen/shared";
 import type { GenerationConversationTurn } from "../../types";
+import styles from "./conversation-panel.module.css";
+import commonStyles from "./common-panel.module.css";
 
 type GenerationConversationPanelProps = {
   clarification: GenerationClarificationResponse | null;
@@ -130,19 +132,19 @@ export function GenerationConversationPanel({
   };
 
   return (
-    <section className={`conversationPanel ${!isOpen ? "collapsed" : ""}`} aria-live="polite">
-      <div className="conversationHeaderRow">
+    <section className={`${styles.conversationPanel} ${!isOpen ? styles.collapsed : ""}`} aria-live="polite">
+      <div className={styles.conversationHeaderRow}>
         <button
           type="button"
-          className="conversationToggle"
+          className={styles.conversationToggle}
           onClick={() => setIsOpen((current) => !current)}
           aria-expanded={isOpen}
         >
           <span>Conversation</span>
-          <span className="conversationMeta">{clarificationConversation.length} turns</span>
+          <span className={styles.conversationMeta}>{clarificationConversation.length} turns</span>
         </button>
 
-        <button type="button" className="secondary tinyButton" onClick={onClearClarification}>
+        <button type="button" className={`secondary ${commonStyles.tinyButton}`} onClick={onClearClarification}>
           대화 초기화
         </button>
       </div>
@@ -150,15 +152,15 @@ export function GenerationConversationPanel({
       {isOpen ? (
         <>
           {clarificationConversation.length > 0 ? (
-            <div className="conversationLog">
+            <div className={styles.conversationLog}>
               {clarificationConversation.map((turn) => {
                 if (turn.role === "agent") {
                   return (
-                    <article key={turn.id} className="conversationTurn agent">
-                      <span className="conversationRole">Agent</span>
-                      <p className="conversationMessage">{turn.message}</p>
+                    <article key={turn.id} className={`${styles.conversationTurn} ${styles.agent}`}>
+                      <span className={styles.conversationRole}>Agent</span>
+                      <p className={styles.conversationMessage}>{turn.message}</p>
                       {turn.questions.length > 0 ? (
-                        <ul className="conversationQuestionList">
+                        <ul className={styles.conversationQuestionList}>
                           {turn.questions.map((question) => (
                             <li key={question.id}>{question.question}</li>
                           ))}
@@ -169,9 +171,9 @@ export function GenerationConversationPanel({
                 }
 
                 return (
-                  <article key={turn.id} className="conversationTurn user">
-                    <span className="conversationRole">You</span>
-                    <ul className="conversationAnswerList">
+                  <article key={turn.id} className={`${styles.conversationTurn} ${styles.user}`}>
+                    <span className={styles.conversationRole}>You</span>
+                    <ul className={styles.conversationAnswerList}>
                       {turn.answers.map((answer) => (
                         <li key={`${turn.id}-${answer.questionId}`}>
                           <strong>{answer.question}</strong>
@@ -186,11 +188,11 @@ export function GenerationConversationPanel({
           ) : null}
 
           {clarification ? (
-            <div className="conversationComposer">
-              <p className="conversationComposerMessage">{clarification.message}</p>
+            <div className={styles.conversationComposer}>
+              <p className={styles.conversationComposerMessage}>{clarification.message}</p>
 
               {(clarification.clarifyingQuestions?.length ?? 0) > 0 ? (
-                <div className="conversationQuestionFields">
+                <div className={styles.conversationQuestionFields}>
                   {clarification.clarifyingQuestions?.map((question) => (
                     <label key={question.id} className="clarificationFieldWrap">
                       <span className="clarificationLabel">{question.question}</span>
@@ -219,7 +221,7 @@ export function GenerationConversationPanel({
               ) : null}
 
               {clarification.missing.some((item) => item.field === "tone") || clarification.missing.some((item) => item.field === "format") ? (
-                <div className="conversationMissingFields">
+                <div className={styles.conversationMissingFields}>
                   {clarification.missing.some((item) => item.field === "tone") ? (
                     <label className="clarificationFieldWrap">
                       <span className="clarificationLabel">Tone</span>
@@ -235,9 +237,10 @@ export function GenerationConversationPanel({
                 </div>
               ) : null}
 
-              <div className="conversationActions">
+              <div className={styles.conversationActions}>
                 <button
                   type="button"
+                  className={`primary ${commonStyles.tinyButton}`}
                   onClick={() => {
                     void onRetryAfterClarification(buildRetryAnswers());
                   }}
