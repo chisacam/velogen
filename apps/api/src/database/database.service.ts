@@ -104,6 +104,7 @@ export class DatabaseService implements OnModuleInit {
     this.addColumnIfMissing("blog_posts", "updated_at", "TEXT");
     this.addColumnIfMissing("blog_posts", "status", "TEXT NOT NULL DEFAULT 'draft'");
     this.addColumnIfMissing("blog_posts", "generation_meta_json", "TEXT");
+    this.addColumnIfMissing("blog_posts", "review_result_json", "TEXT");
 
     this.db.exec("UPDATE blog_posts SET updated_at = COALESCE(updated_at, created_at)");
     this.db.exec("UPDATE blog_posts SET status = COALESCE(status, 'draft')");

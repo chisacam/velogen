@@ -126,8 +126,12 @@
 
 .genPanelBody {
     padding: 16px 18px;
-    display: grid;
+    display: flex;
+    flex-direction: column;
     gap: var(--space-4);
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
 }
 
 .genPanelHint {

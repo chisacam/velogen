@@ -682,6 +682,10 @@ export class GenerationService {
       throw new Error("Agent response does not match BlogReviewResult schema.");
     }
 
+    this.databaseService.connection
+      .prepare("UPDATE blog_posts SET review_result_json = ? WHERE id = ? AND session_id = ?")
+      .run(JSON.stringify(parsed), postId, sessionId);
+
     return parsed as BlogReviewResult;
   }
 

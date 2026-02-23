@@ -362,6 +362,7 @@ export function useWorkspaceController() {
       setPostBodyDraft("");
       setPostStatusDraft("draft");
       setRevisions([]);
+      setReviewResult(null);
     }
   }, [selectedPostId]);
 
@@ -377,6 +378,7 @@ export function useWorkspaceController() {
     setSelectedPostId(post.id);
     setActiveRevisionId(null);
     setRevisions(revisionsData);
+    setReviewResult(post.reviewResult ?? null);
   }, []);
 
   useEffect(() => {

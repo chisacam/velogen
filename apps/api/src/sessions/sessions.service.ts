@@ -122,18 +122,18 @@ export class SessionsService {
       refinePostBody = postRow?.body;
     }
 
-      return this.generationService.generateFromSession(
-        sessionId,
-        provider,
-        tone,
-        format,
-        userInstruction,
-        refinePostBody,
-        refinePostId,
-        generateImage,
-        skipPreflight,
-        clarificationContext
-      );
+    return this.generationService.generateFromSession(
+      sessionId,
+      provider,
+      tone,
+      format,
+      userInstruction,
+      refinePostBody,
+      refinePostId,
+      generateImage,
+      skipPreflight,
+      clarificationContext
+    );
   }
 
   async generateStream(
@@ -164,19 +164,19 @@ export class SessionsService {
       refinePostBody = postRow?.body;
     }
 
-      return this.generationService.generateFromSessionStream(
-        sessionId,
-        provider,
-        tone,
-        format,
+    return this.generationService.generateFromSessionStream(
+      sessionId,
+      provider,
+      tone,
+      format,
       onChunk,
       userInstruction,
-        refinePostBody,
-        refinePostId,
-        generateImage,
-        skipPreflight,
-        clarificationContext
-      );
+      refinePostBody,
+      refinePostId,
+      generateImage,
+      skipPreflight,
+      clarificationContext
+    );
   }
 
   async syncSource(sessionId: string, sourceId: string): Promise<{ ingested: number }> {
@@ -199,7 +199,7 @@ export class SessionsService {
     this.assertSessionExists(sessionId);
     const row = this.databaseService.connection
       .prepare(
-        "SELECT id, title, body, provider, status, created_at as createdAt, updated_at as updatedAt, generation_meta_json as generationMetaJson FROM blog_posts WHERE session_id = ? AND id = ?"
+        "SELECT id, title, body, provider, status, created_at as createdAt, updated_at as updatedAt, generation_meta_json as generationMetaJson, review_result_json as reviewResultJson FROM blog_posts WHERE session_id = ? AND id = ?"
       )
       .get(sessionId, postId) as
       | {
@@ -211,6 +211,7 @@ export class SessionsService {
         createdAt: string;
         updatedAt: string;
         generationMetaJson: string | null;
+        reviewResultJson: string | null;
       }
       | undefined;
 
@@ -218,11 +219,14 @@ export class SessionsService {
       throw new NotFoundException(`Post not found: ${postId}`);
     }
 
-    const { generationMetaJson, ...rest } = row;
+    const { generationMetaJson, reviewResultJson, ...rest } = row;
     return {
       ...rest,
       generationMeta: generationMetaJson
         ? (JSON.parse(generationMetaJson) as Record<string, unknown>)
+        : undefined,
+      reviewResult: reviewResultJson
+        ? (JSON.parse(reviewResultJson) as Record<string, unknown>)
         : undefined
     };
   }
