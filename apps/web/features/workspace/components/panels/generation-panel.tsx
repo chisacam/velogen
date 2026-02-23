@@ -1,9 +1,9 @@
 import { type GenerationPanelProps } from "./panel-types";
-import styles from "./floating-generation-panel.module.css";
+import styles from "./generation-panel.module.css";
 import commonStyles from "./common-panel.module.css";
 import panelStyles from "./conversation-panel.module.css";
 
-export function FloatingGenerationPanel({
+export function GenerationPanel({
   genPanelOpen,
   setGenPanelOpen,
   generateMode,

@@ -2,7 +2,7 @@
 
 import {
   EditorPanel,
-  FloatingGenerationPanel,
+  GenerationPanel,
   PostsPanel,
   SessionPanel,
   SourcesPanel,

@@ -4,7 +4,7 @@ import { MarkdownViewer } from "../../../../components/markdown-viewer";
 import { type EditorPanelProps } from "./panel-types";
 import { GenerationConversationPanel } from "./generation-conversation-panel";
 import { ReviewPanel } from "./review-panel";
-import { FloatingGenerationPanel } from "./floating-generation-panel";
+import { GenerationPanel } from "./generation-panel";
 import styles from "./editor-panel.module.css";
 import commonStyles from "./common-panel.module.css";
 
@@ -182,7 +182,7 @@ export function EditorPanel({
               onOpenStateChange={setIsConversationOpen}
             />
           )}
-          <FloatingGenerationPanel
+          <GenerationPanel
             {...genProps}
             isGenerating={isGenerating}
             postBodyDraft={postBodyDraft}

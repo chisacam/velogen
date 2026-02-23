@@ -237,7 +237,7 @@
     padding: 0;
     display: grid;
     gap: 6px;
-    max-height: 240px;
+    max-height: 300px;
     overflow-y: auto;
     padding-right: 4px;
 }
