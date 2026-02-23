@@ -1,0 +1,48 @@
+.workspaceHeader h2 {
+    margin: 0;
+}
+
+.workspaceHeader {
+    display: flex;
+    align-items: center;
+    min-height: 52px;
+}
+
+.workspaceHeaderTitle {
+    gap: 10px;
+    background: #f8fdf8;
+    border: 1px solid #2f505915;
+}
+
+.workspaceHeader p {
+    margin: 0;
+    color: var(--muted);
+}
+
+.autoTitleBar {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: 10px 14px;
+    border-radius: var(--radius-md);
+    background: #f8fdf8;
+    border: 1px solid #2f505915;
+}
+
+.autoTitleLabel {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    flex-shrink: 0;
+}
+
+.autoTitleValue {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--ink);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}

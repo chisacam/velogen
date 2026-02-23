@@ -1,0 +1,104 @@
+.workspaceBody {
+    display: grid;
+    gap: var(--space-4);
+}
+
+.editorWorkspace {
+    display: flex;
+    flex-direction: row;
+    height: 100%;
+    min-height: 0;
+    gap: var(--space-4);
+    align-items: stretch;
+}
+
+@media (max-width: 900px) {
+    .editorWorkspace {
+        flex-direction: column-reverse;
+    }
+}
+
+.editorMainColumn {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+    gap: var(--space-3);
+}
+
+.editorRightSidebar {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    width: 380px;
+    flex-shrink: 0;
+    height: 100%;
+}
+
+.card {
+    background: var(--card);
+    border: 1px solid var(--stroke);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-card);
+    padding: var(--space-5);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    animation: rise 0.45s ease-out;
+}
+
+.editorEmptyHint {
+    margin: 0;
+    color: var(--muted);
+}
+
+.tinyButton {
+    margin-left: var(--space-2);
+    padding: var(--space-1) var(--space-2);
+    font-size: 0.8rem;
+}
+
+.toastStack {
+    position: fixed;
+    bottom: 40px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-2);
+    width: max-content;
+    max-width: min(100%, 360px);
+}
+
+.toastItem {
+    padding: 10px 18px;
+    border-radius: var(--radius-xl);
+    border: 1px solid #2f505924;
+    background: #ffffffea;
+    color: var(--muted);
+    font-weight: 600;
+    font-size: 0.88rem;
+    box-shadow: 0 12px 24px #16323a1a;
+    animation: slideUpToast 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+
+.toastItem.info {
+    border-color: #2d82964a;
+    background: #f0fbffeb;
+    color: #1a515e;
+}
+
+.toastItem.success {
+    border-color: #2c8a4e50;
+    background: #e8f9edeb;
+    color: #176133;
+}
+
+.toastItem.error {
+    border-color: #b2353540;
+    background: #fdf3f3eb;
+    color: #921b1b;
+}

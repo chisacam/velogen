@@ -12,12 +12,13 @@ import {
   ReviewPanel
 } from "../features/workspace/components/workspace-ui";
 import { useWorkspaceController } from "../features/workspace/use-workspace-controller";
+import styles from "./page.module.css";
 
 export default function HomePage() {
   const controller = useWorkspaceController();
 
   return (
-    <main className="appShell">
+    <main className={styles.appShell}>
       <WorkspaceSidebar
         activePanel={controller.activePanel}
         navItems={controller.navItems}
@@ -29,29 +30,9 @@ export default function HomePage() {
         onLoadRevision={controller.onLoadRevision}
         selectedSession={controller.selectedSession}
         setPanel={controller.setPanel}
-        genPanelOpen={controller.genPanelOpen}
-        setGenPanelOpen={controller.setGenPanelOpen}
-        generateMode={controller.generateMode}
-        setGenerateMode={controller.setGenerateMode}
-        postStatusDraft={controller.postStatusDraft}
-        setPostStatusDraft={controller.setPostStatusDraft}
-        autoGenerateImages={controller.autoGenerateImages}
-        setAutoGenerateImages={controller.setAutoGenerateImages}
-        isGenerating={controller.isGenerating}
-        isGeneratingImages={controller.isGeneratingImages}
-        onGenerate={controller.onGenerate}
-        onSavePost={controller.onSavePost}
-        onExportMarkdown={controller.onExportMarkdown}
-        userInstruction={controller.userInstruction}
-        setUserInstruction={controller.setUserInstruction}
-        postBodyDraft={controller.postBodyDraft}
-        tone={controller.tone}
-        setTone={controller.setTone}
-        format={controller.format}
-        setFormat={controller.setFormat}
       />
 
-      <section className="workspace">
+      <section className={styles.workspace}>
         <WorkspaceHeader activePanel={controller.activePanel} postTitleDraft={controller.postTitleDraft} />
 
         <ToastStack toasts={controller.toasts} />
@@ -134,6 +115,21 @@ export default function HomePage() {
             onReviewPost={controller.onReviewPost}
             onApplySuggestion={controller.onApplySuggestion}
             setReviewResult={controller.setReviewResult}
+            genPanelOpen={controller.genPanelOpen}
+            setGenPanelOpen={controller.setGenPanelOpen}
+            generateMode={controller.generateMode}
+            setGenerateMode={controller.setGenerateMode}
+            postStatusDraft={controller.postStatusDraft}
+            setPostStatusDraft={controller.setPostStatusDraft}
+            autoGenerateImages={controller.autoGenerateImages}
+            setAutoGenerateImages={controller.setAutoGenerateImages}
+            isGeneratingImages={controller.isGeneratingImages}
+            onGenerate={controller.onGenerate}
+            onSavePost={controller.onSavePost}
+            onExportMarkdown={controller.onExportMarkdown}
+            userInstruction={controller.userInstruction}
+            setUserInstruction={controller.setUserInstruction}
+            selectedPostId={controller.selectedPostId}
           />
         ) : null}
 

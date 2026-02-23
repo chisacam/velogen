@@ -1,5 +1,6 @@
 import type { AgentProvider } from "@velogen/shared";
 import { type SessionPanelProps } from "./panel-types";
+import commonStyles from "./common-panel.module.css";
 
 export function SessionPanel({
   sessionTitle,
@@ -15,7 +16,7 @@ export function SessionPanel({
   onDeleteSession
 }: SessionPanelProps) {
   return (
-    <div className="workspaceBody card">
+    <div className={`${commonStyles.workspaceBody} ${commonStyles.card}`}>
       <div className="grid two">
         <div>
           <h3>Create Session</h3>

@@ -1,0 +1,197 @@
+.conversationPanel {
+    border: 1px solid #2f505924;
+    background: #f8fbfa;
+    border-radius: var(--radius-lg);
+    padding: 8px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    transition: flex 0.2s ease, min-height 0.2s ease, padding 0.2s ease;
+}
+
+.conversationPanel.collapsed {
+    flex: none;
+    height: max-content;
+    overflow: hidden;
+    padding-bottom: 8px;
+}
+
+.conversationHeaderRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.conversationToggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: #fff;
+    border: 1px solid #2f505924;
+    color: var(--ink);
+    padding: 6px 10px;
+    font-size: 0.84rem;
+    font-weight: 700;
+}
+
+.conversationToggle:hover:not(:disabled) {
+    background: #f2fbf9;
+    border-color: var(--accent);
+    color: var(--accent);
+    box-shadow: none;
+}
+
+.conversationMeta {
+    font-size: 0.75rem;
+    color: var(--muted);
+    font-weight: 600;
+}
+
+.conversationLog {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    display: grid;
+    gap: 8px;
+    padding-right: 2px;
+    align-content: start;
+}
+
+.conversationTurn {
+    border-radius: var(--radius-md);
+    border: 1px solid #2f505924;
+    background: #fff;
+    padding: 8px 10px;
+    display: grid;
+    gap: 6px;
+}
+
+.agent {
+    border-color: #c4aa7c;
+    background: #fff7e7;
+}
+
+.user {
+    border-color: #86a097;
+    background: #ecf8f2;
+}
+
+.conversationRole {
+    font-size: 0.72rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #6f5628;
+}
+
+.user .conversationRole {
+    color: #2e5d51;
+}
+
+.conversationMessage {
+    margin: 0;
+    font-size: 0.84rem;
+    color: #3e3118;
+    line-height: 1.45;
+}
+
+.conversationQuestionList,
+.conversationAnswerList {
+    margin: 0;
+    padding-left: 18px;
+    display: grid;
+    gap: 4px;
+}
+
+.conversationAnswerList li p {
+    margin: 2px 0 0;
+    white-space: pre-wrap;
+    color: #1f3f36;
+}
+
+.conversationComposer {
+    flex-shrink: 0;
+    border-top: 1px solid #2f505924;
+    padding-top: 10px;
+    display: grid;
+    gap: 10px;
+}
+
+.conversationComposerMessage {
+    margin: 0;
+    font-size: 0.84rem;
+    color: var(--muted);
+    line-height: 1.45;
+}
+
+.conversationQuestionFields,
+.conversationMissingFields {
+    display: grid;
+    gap: 8px;
+}
+
+.conversationActions {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.suggestionCard {
+    border: 1px solid #2f505924;
+    border-radius: var(--radius-md);
+    background: #fff;
+    padding: 8px 10px;
+    display: grid;
+    gap: 6px;
+}
+
+.suggestionCard.disabled {
+    opacity: 0.6;
+}
+
+.suggestionReason {
+    margin: 0;
+    font-size: 0.8rem;
+    color: var(--ink);
+}
+
+.suggestionDiff {
+    display: grid;
+    gap: 4px;
+    background: #f4f7f4;
+    padding: 6px 8px;
+    border-radius: var(--radius-sm);
+}
+
+.diffOriginal,
+.diffSuggested {
+    font-size: 0.8rem;
+}
+
+.diffOriginal p,
+.diffSuggested p {
+    margin: 0;
+    color: #3f595f;
+    white-space: pre-wrap;
+}
+
+.diffLabel {
+    display: inline-block;
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 2px;
+}
+
+.suggestionActions {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.revisionPanel {
+    margin-top: var(--space-3);
+    border-top: 1px solid #2f505924;
+    padding-top: var(--space-3);
+}

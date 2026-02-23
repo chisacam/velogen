@@ -1,4 +1,5 @@
 import { type SourcesPanelProps } from "./panel-types";
+import commonStyles from "./common-panel.module.css";
 
 type PeriodSliderProps = {
   value: string;
@@ -58,7 +59,7 @@ export function SourcesPanel({
   onFormatSourceDisplay
 }: SourcesPanelProps) {
   return (
-    <div className="workspaceBody card">
+    <div className={`${commonStyles.workspaceBody} ${commonStyles.card}`}>
       <div className="grid two">
         <div>
           <h3>Add Repo Source</h3>

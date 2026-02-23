@@ -1,0 +1,59 @@
+.editor {
+    min-height: 360px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    width: 100%;
+    border: 1px solid #2f505924;
+    border-radius: var(--radius-lg);
+    padding: 12px;
+    background: #fff;
+    resize: vertical;
+}
+
+.viewer {
+    min-height: 360px;
+    border: 1px solid #2f505924;
+    border-radius: var(--radius-lg);
+    padding: 12px;
+    background: #fff;
+    overflow: auto;
+}
+
+.viewer h1,
+.viewer h2,
+.viewer h3 {
+    margin-top: 1.1rem;
+}
+
+.heading {
+    position: relative;
+    padding-left: 10px;
+    border-left: 3px solid #2d82968f;
+}
+
+.citation {
+    background: #ffe59a;
+    border: 1px solid #deb85a;
+    border-radius: var(--radius-sm);
+    color: #583f00;
+    padding: 0 6px;
+    font-size: 0.86em;
+}
+
+.flashHeading .heading {
+    animation: pulseHeading 0.8s ease-out;
+}
+
+.flashCitation .citation {
+    animation: pulseCitation 0.8s ease-out;
+}
+
+.viewer pre {
+    white-space: pre-wrap;
+    word-break: break-word;
+    background: #0e2a2e;
+    color: #def1ef;
+    border-radius: var(--radius-lg);
+    padding: 14px;
+    overflow: auto;
+    max-height: 480px;
+}
