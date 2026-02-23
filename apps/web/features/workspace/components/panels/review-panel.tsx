@@ -72,7 +72,7 @@ export function ReviewPanel({
                                                     disabled={!isApplyable}
                                                     title={!isApplyable ? "원문이 에디터에서 변경되어 적용할 수 없습니다." : "제안 직접 적용"}
                                                 >
-                                                    {isApplyable ? "제안 적용" : "적용 불가"}
+                                                    {isApplyable ? "제안 적용" : "적용 완료"}
                                                 </button>
                                             </div>
                                         </div>
