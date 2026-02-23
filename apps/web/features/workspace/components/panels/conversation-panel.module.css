@@ -7,6 +7,7 @@
     flex-direction: column;
     gap: 6px;
     transition: flex 0.2s ease, min-height 0.2s ease, padding 0.2s ease;
+    min-height: 0;
 }
 
 .conversationPanel.collapsed {

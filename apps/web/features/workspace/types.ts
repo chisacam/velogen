@@ -3,7 +3,8 @@ import type {
   GenerationClarificationAnswer,
   GenerationClarificationQuestion,
   GenerationMeta,
-  SourceType
+  SourceType,
+  BlogReviewResult
 } from "@velogen/shared";
 
 type EditorMode = "edit" | "preview" | "split";
@@ -43,6 +44,7 @@ interface GeneratedPost {
   createdAt: string;
   updatedAt: string;
   generationMeta?: GenerationMeta;
+  reviewResult?: BlogReviewResult;
 }
 
 interface PostRevision {
