@@ -201,3 +201,37 @@
         grid-template-rows: 1fr 1fr;
     }
 }
+
+.diffList {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 8px 0;
+    background: #fff;
+}
+
+.diffChunkViewer {
+    min-height: auto !important;
+    border: none !important;
+    border-radius: 0 !important;
+    padding: 4px 12px !important;
+    margin: 0 !important;
+    background: transparent !important;
+    overflow: visible !important;
+}
+
+.diffOriginal {
+    background: #ffe2df !important;
+    border-left: 3px solid #fbbeb9 !important;
+}
+
+.diffSuggested {
+    background: #d5f5e6 !important;
+    border-left: 3px solid #86a097 !important;
+}
+
+.diffUnchanged {
+    opacity: 0.8;
+}

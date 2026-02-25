@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
+import * as Diff from "diff";
 import { MarkdownEditor } from "../../../../components/markdown-editor";
 import { MarkdownViewer } from "../../../../components/markdown-viewer";
 import { type EditorPanelProps } from "./panel-types";
@@ -86,6 +87,11 @@ export function EditorPanel({
 
   const hasDraftContent = postBodyDraft.trim().length > 0 || generatedPost !== null;
 
+  const diffChunks = useMemo(() => {
+    if (refinedPostBody === null) return [];
+    return Diff.diffLines(postBodyDraft, refinedPostBody);
+  }, [postBodyDraft, refinedPostBody]);
+
   return (
     <div className={`${commonStyles.workspaceBody} ${commonStyles.card} ${commonStyles.editorWorkspace} `}>
       <div className={commonStyles.editorMainColumn}>
@@ -146,27 +152,47 @@ export function EditorPanel({
                 <div className={styles.refineDiffSplit}>
                   <div className={styles.refineDiffOriginal}>
                     <h4>Original</h4>
-                    <MarkdownViewer
-                      viewerRef={refineOriginalRef}
-                      content={postBodyDraft}
-                      className={styles.constrainedViewer}
+                    <div
+                      className={styles.diffList}
+                      ref={refineOriginalRef}
                       onScroll={(event) => {
                         if (!refineNewRef.current) return;
                         syncScroll(event.currentTarget, refineNewRef.current, "refine-original");
                       }}
-                    />
+                    >
+                      {diffChunks.map((chunk, index) => {
+                        if (chunk.added) return null;
+                        return (
+                          <MarkdownViewer
+                            key={`orig-${index}`}
+                            content={chunk.value}
+                            className={`${styles.diffChunkViewer} ${chunk.removed ? styles.diffOriginal : styles.diffUnchanged}`}
+                          />
+                        );
+                      })}
+                    </div>
                   </div>
                   <div className={styles.refineDiffNew}>
                     <h4>Refined Output</h4>
-                    <MarkdownViewer
-                      viewerRef={refineNewRef}
-                      content={refinedPostBody}
-                      className={styles.constrainedViewer}
+                    <div
+                      className={styles.diffList}
+                      ref={refineNewRef}
                       onScroll={(event) => {
                         if (!refineOriginalRef.current) return;
                         syncScroll(event.currentTarget, refineOriginalRef.current, "refine-new");
                       }}
-                    />
+                    >
+                      {diffChunks.map((chunk, index) => {
+                        if (chunk.removed) return null;
+                        return (
+                          <MarkdownViewer
+                            key={`new-${index}`}
+                            content={chunk.value}
+                            className={`${styles.diffChunkViewer} ${chunk.added ? styles.diffSuggested : styles.diffUnchanged}`}
+                          />
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
               </div>
