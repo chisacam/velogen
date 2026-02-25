@@ -759,7 +759,6 @@ export class GenerationService {
       keyEvents,
       themeGroups,
       evidence,
-      normalizedItems,
     ].join("\n\n");
 
     return fullContent;
