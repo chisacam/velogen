@@ -4,13 +4,13 @@ import { Injectable, Logger } from "@nestjs/common";
  * Google Gemini Nano Banana API를 사용한 이미지 생성 서비스.
  *
  * 환경변수:
- * - `GEMINI_API_KEY`: Google AI Studio에서 발급받은 API 키
+ * - `GOOGLE_API_KEY`: Google AI Studio에서 발급받은 API 키
  * - `GEMINI_IMAGE_MODEL`: 사용할 모델 (기본: gemini-2.5-flash-image)
  */
 @Injectable()
 export class ImageGenService {
     private readonly logger = new Logger(ImageGenService.name);
-    private readonly apiKey = process.env.GEMINI_API_KEY ?? "";
+    private readonly apiKey = process.env.GOOGLE_API_KEY ?? "";
     private readonly model = process.env.GEMINI_IMAGE_MODEL ?? "gemini-2.5-flash-image";
 
     /**
@@ -19,7 +19,7 @@ export class ImageGenService {
      */
     async generateImage(prompt: string): Promise<{ mimeType: string; base64: string } | null> {
         if (!this.apiKey) {
-            this.logger.warn("GEMINI_API_KEY is not set. Skipping image generation.");
+            this.logger.warn("GOOGLE_API_KEY is not set. Skipping image generation.");
             return null;
         }
 
