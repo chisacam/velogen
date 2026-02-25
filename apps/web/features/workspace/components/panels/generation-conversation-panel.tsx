@@ -132,16 +132,16 @@ export function GenerationConversationPanel({
   };
 
   return (
-    <section className={`${styles.conversationPanel} ${!isOpen ? styles.collapsed : ""}`} aria-live="polite">
-      <div className={styles.conversationHeaderRow}>
+    <section className={`${commonStyles.collapsiblePanel} ${!isOpen ? commonStyles.collapsed : ""}`} aria-live="polite">
+      <div className={commonStyles.panelHeaderRow}>
         <button
           type="button"
-          className={styles.conversationToggle}
+          className={commonStyles.panelToggle}
           onClick={() => setIsOpen((current) => !current)}
           aria-expanded={isOpen}
         >
           <span>Conversation</span>
-          <span className={styles.conversationMeta}>{clarificationConversation.length} turns</span>
+          <span className={commonStyles.panelMeta}>{clarificationConversation.length} turns</span>
         </button>
 
         <button type="button" className={`secondary ${commonStyles.tinyButton}`} onClick={onClearClarification}>

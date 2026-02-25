@@ -28,11 +28,11 @@ export function GenerationPanel({
   setFormat
 }: GenerationPanelProps) {
   return (
-    <section className={`${panelStyles.conversationPanel} ${!genPanelOpen ? panelStyles.collapsed : ""}`} aria-live="polite">
-      <div className={panelStyles.conversationHeaderRow}>
+    <section className={`${commonStyles.collapsiblePanel} ${!genPanelOpen ? commonStyles.collapsed : ""}`} aria-live="polite">
+      <div className={commonStyles.panelHeaderRow}>
         <button
           type="button"
-          className={panelStyles.conversationToggle}
+          className={commonStyles.panelToggle}
           aria-expanded={genPanelOpen}
           onClick={() => setGenPanelOpen(!genPanelOpen)}
           title="Generation settings"

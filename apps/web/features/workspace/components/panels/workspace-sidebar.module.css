@@ -294,8 +294,29 @@
         height: auto;
     }
 
+    .sideNavScrollArea {
+        padding-bottom: 0;
+        overflow: visible;
+    }
+
+    .menuList {
+        display: flex;
+        flex-direction: row;
+        overflow-x: auto;
+        padding-bottom: 4px;
+    }
+
+    .menuItem {
+        width: auto;
+        white-space: nowrap;
+    }
+
     .sideMeta {
-        max-height: 38vh;
-        overflow: auto;
+        max-height: 40vh;
+        overflow-y: auto;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        column-gap: 20px;
+        row-gap: 12px;
     }
 }
