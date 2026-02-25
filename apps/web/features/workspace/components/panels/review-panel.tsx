@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { type BlogReviewResult, type BlogReviewSuggestion } from "@velogen/shared";
-import styles from "./conversation-panel.module.css";
+import styles from "./review-panel.module.css";
 import commonStyles from "./common-panel.module.css";
 
 type ReviewPanelProps = {
@@ -23,16 +23,16 @@ export function ReviewPanel({
     const [isOpen, setIsOpen] = useState(false);
 
     return (
-        <section className={`${styles.conversationPanel} reviewPanel ${!isOpen ? styles.collapsed : ""}`} aria-live="polite">
-            <div className={styles.conversationHeaderRow}>
+        <section className={`${commonStyles.collapsiblePanel} reviewPanel ${!isOpen ? commonStyles.collapsed : ""}`} aria-live="polite">
+            <div className={commonStyles.panelHeaderRow}>
                 <button
                     type="button"
-                    className={styles.conversationToggle}
+                    className={commonStyles.panelToggle}
                     aria-expanded={isOpen}
                     onClick={() => setIsOpen(!isOpen)}
                 >
                     <span>Review & Suggestions</span>
-                    {reviewResult?.suggestions?.length ? <span className={styles.conversationMeta}>{reviewResult.suggestions.length} suggestions</span> : null}
+                    {reviewResult?.suggestions?.length ? <span className={commonStyles.panelMeta}>{reviewResult.suggestions.length} suggestions</span> : null}
                 </button>
             </div>
 

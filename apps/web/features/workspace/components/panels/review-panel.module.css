@@ -1,0 +1,65 @@
+.suggestionCard {
+    border: 1px solid #2f505924;
+    border-radius: var(--radius-md);
+    background: #fff;
+    padding: 8px 10px;
+    display: grid;
+    gap: 6px;
+}
+
+.suggestionCard.disabled {
+    opacity: 0.6;
+}
+
+.suggestionReason {
+    margin: 0;
+    font-size: 0.8rem;
+    color: var(--ink);
+}
+
+.suggestionDiff {
+    display: grid;
+    gap: 4px;
+    background: #f4f7f4;
+    padding: 6px 8px;
+    border-radius: var(--radius-sm);
+}
+
+.diffOriginal,
+.diffSuggested {
+    font-size: 0.8rem;
+}
+
+.diffOriginal p {
+    margin: 0;
+    padding: 3px;
+    color: #3f595f;
+    white-space: pre-wrap;
+    border-color: #fbbeb9;
+    background: #ffe2df;
+    border-radius: var(--radius-sm);
+}
+
+.diffSuggested p {
+    margin: 0;
+    padding: 3px;
+    color: #3f595f;
+    white-space: pre-wrap;
+    border-color: #86a097;
+    background: #d5f5e6;
+    border-radius: var(--radius-sm);
+}
+
+.diffLabel {
+    display: inline-block;
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 2px;
+}
+
+.suggestionActions {
+    display: flex;
+    justify-content: flex-end;
+}

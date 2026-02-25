@@ -100,20 +100,19 @@
     }
 
     .mdPane {
-        flex: none;
+        flex: 1;
+        min-height: 0;
     }
 
     .mdPaneSplit {
         grid-template-columns: 1fr;
+        grid-template-rows: 1fr 1fr;
     }
 
-    /* We need to use global classes here as they are inside markdown components 
-       or we can assume they'll respond naturally if their containers flex. 
-       Let's add the specific heights for constrained view. */
     .constrainedEditor,
     .constrainedViewer {
-        height: 52vh;
-        max-height: 52vh;
+        height: 100%;
+        max-height: none;
     }
 }
 
@@ -121,7 +120,7 @@
 @media (max-width: 900px) {
     :global(.editorRightSidebar) {
         width: 100%;
-        max-height: 40vh;
+        max-height: 48vh;
         overflow-y: auto;
     }
 }

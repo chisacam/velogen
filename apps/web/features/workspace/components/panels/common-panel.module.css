@@ -10,11 +10,14 @@
     min-height: 0;
     gap: var(--space-4);
     align-items: stretch;
+    flex: 1;
 }
 
 @media (max-width: 900px) {
     .editorWorkspace {
         flex-direction: column-reverse;
+        flex: 1;
+        min-height: 0;
     }
 }
 
@@ -102,4 +105,57 @@
     border-color: #b2353540;
     background: #fdf3f3eb;
     color: #921b1b;
+}
+
+/* Common Collapsible Panel Styles */
+.collapsiblePanel {
+    border: 1px solid #2f505924;
+    background: #f8fbfa;
+    border-radius: var(--radius-lg);
+    padding: 8px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    transition: flex 0.2s ease, min-height 0.2s ease, padding 0.2s ease;
+    min-height: 0;
+}
+
+.collapsiblePanel.collapsed {
+    flex: none;
+    height: max-content;
+    overflow: hidden;
+    padding-bottom: 8px;
+}
+
+.panelHeaderRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.panelToggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: #fff;
+    border: 1px solid #2f505924;
+    color: var(--ink);
+    padding: 6px 10px;
+    font-size: 0.84rem;
+    font-weight: 700;
+}
+
+.panelToggle:hover:not(:disabled) {
+    background: #f2fbf9;
+    border-color: var(--accent);
+    color: var(--accent);
+    box-shadow: none;
+}
+
+.panelMeta {
+    font-size: 0.75rem;
+    color: var(--muted);
+    font-weight: 600;
 }
