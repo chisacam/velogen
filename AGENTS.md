@@ -23,7 +23,7 @@
 - 코드 작업: `./rules/code.md`
 - 코드 입력 분석: `./rules/code-analysis.md`
 - 코드 리뷰: `./rules/code-review.md`
-- 블로그 입력 분석: `./rules/blog-input-analysis.md`
+- 블로그 입력 분석 및 인터뷰: `./rules/blog-clarification.md`
 - 블로그 작성: `./rules/blog.md`
 - 블로그 프롬프트 규칙: `./rules/blog-prompt.md`
 - 블로그 리뷰: `./rules/blog-review.md`

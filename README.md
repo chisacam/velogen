@@ -18,7 +18,7 @@ Next.js, NestJS, SQLite 환경을 기반으로 구축되었으며, 주요 AI 모
 - 에이전트 운영 규칙(한글): [`AGENTS.md`](./AGENTS.md)
 - Agent operating rules (English): [`AGENTS.en.md`](./AGENTS.en.md)
 - 리팩토링 진행 요약: [`docs/refactor-report.md`](./docs/refactor-report.md)
-- 에이전트 룰 문서(역할별): [`rules/code.md`](./rules/code.md), [`rules/code-analysis.md`](./rules/code-analysis.md), [`rules/blog-input-analysis.md`](./rules/blog-input-analysis.md), [`rules/blog.md`](./rules/blog.md), [`rules/blog-prompt.md`](./rules/blog-prompt.md), [`rules/code-review.md`](./rules/code-review.md), [`rules/blog-review.md`](./rules/blog-review.md)
+- 에이전트 룰 문서(역할별): [`rules/code.md`](./rules/code.md), [`rules/code-analysis.md`](./rules/code-analysis.md), [`rules/blog-clarification.md`](./rules/blog-clarification.md), [`rules/blog.md`](./rules/blog.md), [`rules/blog-prompt.md`](./rules/blog-prompt.md), [`rules/code-review.md`](./rules/code-review.md), [`rules/blog-review.md`](./rules/blog-review.md)
 - 리뷰 템플릿: [`review-guide/code.md`](./review-guide/code.md), [`review-guide/blog.md`](./review-guide/blog.md)
 
 ## 모노레포 구조

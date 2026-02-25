@@ -58,7 +58,7 @@ export class GenerationService {
   private static readonly promptGuidanceFiles = [
     "rules/security.md",
     "AGENTS.md",
-    "rules/blog-input-analysis.md",
+    "rules/blog-clarification.md",
     "rules/blog.md",
     "rules/blog-prompt.md",
     "review-guide/blog.md"
@@ -337,7 +337,7 @@ export class GenerationService {
     clarificationContext: GenerationClarificationContext,
     skipPreflight?: boolean
   ): Promise<AgentClarificationDecision | undefined> {
-    if (skipPreflight && clarificationContext.answers.length === 0) {
+    if (skipPreflight) {
       return undefined;
     }
 
@@ -499,12 +499,10 @@ export class GenerationService {
             ...(rationale ? { rationale } : {})
           };
           return nextQuestion;
-        })
-        .slice(0, 2);
+        });
 
       const questions = normalizedQuestions
-        .filter((question): question is GenerationClarificationQuestion => question !== null)
-        .slice(0, 2);
+        .filter((question): question is GenerationClarificationQuestion => question !== null);
 
       if (questions.length === 0) {
         continue;

@@ -438,7 +438,32 @@ export function useWorkspaceController() {
       setClarificationAnswers([]);
     }
 
-    setClarificationConversation(clarificationConversationByThread[activeConversationThreadKey] ?? []);
+    const turns = clarificationConversationByThread[activeConversationThreadKey] ?? [];
+    setClarificationConversation(turns);
+
+    // Hydrate clarification state on refresh if the last turn was a pending agent question
+    if (turns.length > 0) {
+      const lastTurn = turns[turns.length - 1];
+      if (lastTurn.role === "agent" && lastTurn.questions && lastTurn.questions.length > 0) {
+        setClarification((current) => {
+          if (current) {
+            return current;
+          }
+          const allUserAnswers = turns
+            .filter((t): t is Extract<GenerationConversationTurn, { role: "user" }> => t.role === "user")
+            .flatMap((t) => t.answers ?? []);
+
+          return {
+            requiresClarification: true,
+            message: lastTurn.message,
+            clarifyingQuestions: lastTurn.questions,
+            missing: [],
+            defaults: { tone: "", format: "" },
+            context: { answers: allUserAnswers, turn: 0, maxTurns: 3 }
+          } as unknown as GenerationClarificationResponse;
+        });
+      }
+    }
   }, [activeConversationThreadKey, clarificationConversationByThread]);
 
   useEffect(() => {
@@ -971,9 +996,9 @@ export function useWorkspaceController() {
   ]);
 
   const retryAfterClarification = useCallback(
-    async (clarificationDraftAnswers?: GenerationClarificationAnswer[]): Promise<void> => {
+    async (clarificationDraftAnswers?: GenerationClarificationAnswer[], forceSkip: boolean = false): Promise<void> => {
       const submittedAnswers = normalizeClarificationAnswers(clarificationDraftAnswers ?? clarificationAnswers);
-      if (submittedAnswers.length > 0) {
+      if (submittedAnswers.length > 0 && !forceSkip) {
         appendConversationTurn({
           id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
           role: "user",
@@ -982,7 +1007,9 @@ export function useWorkspaceController() {
       }
 
       const context = buildRetryClarificationContext(submittedAnswers);
-      await onGenerate(true, context);
+      // If we are forcing a skip from the UI, pass true to skip the agent. 
+      // If forceSkip is false, pass false so the agent can ask follow-up questions if needed.
+      await onGenerate(forceSkip, context);
     },
     [appendConversationTurn, buildRetryClarificationContext, clarificationAnswers, normalizeClarificationAnswers, onGenerate]
   );

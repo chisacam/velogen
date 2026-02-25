@@ -101,7 +101,7 @@ export type EditorPanelProps = GenerationPanelProps & {
   clarificationAnswers: GenerationClarificationAnswer[];
   clarificationConversation: GenerationConversationTurn[];
   onClarificationAnswerChange: (questionId: string, question: string, answer: string) => void;
-  onRetryAfterClarification: (clarificationDraftAnswers?: GenerationClarificationAnswer[]) => Promise<void>;
+  onRetryAfterClarification: (clarificationDraftAnswers?: GenerationClarificationAnswer[], forceSkip?: boolean) => Promise<void>;
   onClearClarification: () => void;
   isReviewing: boolean;
   reviewResult: BlogReviewResult | null;
