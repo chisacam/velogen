@@ -63,7 +63,7 @@ export class GenerationService {
     "rules/blog-prompt.md",
     "review-guide/blog.md"
   ];
-  private static readonly defaultClarificationMaxTurns = 5;
+  private static readonly defaultClarificationMaxTurns = 3;
 
   constructor(
     private readonly databaseService: DatabaseService,
@@ -337,7 +337,7 @@ export class GenerationService {
     clarificationContext: GenerationClarificationContext,
     skipPreflight?: boolean
   ): Promise<AgentClarificationDecision | undefined> {
-    if (skipPreflight && clarificationContext.answers.length === 0) {
+    if (skipPreflight) {
       return undefined;
     }
 

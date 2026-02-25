@@ -12,7 +12,7 @@ type GenerationConversationPanelProps = {
   clarificationAnswers: GenerationClarificationAnswer[];
   clarificationConversation: GenerationConversationTurn[];
   onClarificationAnswerChange: (questionId: string, question: string, answer: string) => void;
-  onRetryAfterClarification: (clarificationDraftAnswers?: GenerationClarificationAnswer[]) => Promise<void>;
+  onRetryAfterClarification: (clarificationDraftAnswers?: GenerationClarificationAnswer[], forceSkip?: boolean) => Promise<void>;
   onClearClarification: () => void;
   tone: string;
   setTone: (tone: string) => void;
@@ -58,19 +58,9 @@ export function GenerationConversationPanel({
   useEffect(() => {
     setDraftAnswers((previous) => {
       const next = { ...previous };
-      const nextKeys = new Set<string>();
-
       for (const answer of clarificationAnswers) {
         next[answer.questionId] = answer.answer;
-        nextKeys.add(answer.questionId);
       }
-
-      for (const key of Object.keys(next)) {
-        if (!nextKeys.has(key)) {
-          delete next[key];
-        }
-      }
-
       return next;
     });
   }, [clarificationAnswers]);
@@ -240,9 +230,20 @@ export function GenerationConversationPanel({
               <div className={styles.conversationActions}>
                 <button
                   type="button"
+                  className={`secondary ${commonStyles.tinyButton}`}
+                  onClick={() => {
+                    void onRetryAfterClarification(buildRetryAnswers(), true);
+                  }}
+                  title="질문을 건너뛰고 바로 생성을 시작합니다."
+                  style={{ marginRight: '8px' }}
+                >
+                  답변 없이 바로 생성
+                </button>
+                <button
+                  type="button"
                   className={`primary ${commonStyles.tinyButton}`}
                   onClick={() => {
-                    void onRetryAfterClarification(buildRetryAnswers());
+                    void onRetryAfterClarification(buildRetryAnswers(), false);
                   }}
                 >
                   답변 전송 후 계속 생성
