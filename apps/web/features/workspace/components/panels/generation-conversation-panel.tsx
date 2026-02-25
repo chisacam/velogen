@@ -56,14 +56,10 @@ export function GenerationConversationPanel({
   }, [hasPanelContent, onOpenStateChange]);
 
   useEffect(() => {
-    setDraftAnswers((previous) => {
-      const next = { ...previous };
-      for (const answer of clarificationAnswers) {
-        next[answer.questionId] = answer.answer;
-      }
-      return next;
-    });
-  }, [clarificationAnswers]);
+    // 새로운 질문(clarification)이 도착하면 입력폼을 초기화합니다.
+    setDraftAnswers({});
+    composingByQuestionIdRef.current = {};
+  }, [clarification]);
 
   if (!hasPanelContent) {
     return null;
@@ -134,7 +130,7 @@ export function GenerationConversationPanel({
           <span className={commonStyles.panelMeta}>{clarificationConversation.length} turns</span>
         </button>
 
-        <button type="button" className={`secondary ${commonStyles.tinyButton}`} onClick={onClearClarification}>
+        <button type="button" className={`secondary ${commonStyles.tinyButton}`} onClick={() => { setDraftAnswers({}); onClearClarification(); }}>
           대화 초기화
         </button>
       </div>
@@ -232,7 +228,9 @@ export function GenerationConversationPanel({
                   type="button"
                   className={`secondary ${commonStyles.tinyButton} ${styles.actionButtonMargin}`}
                   onClick={() => {
-                    void onRetryAfterClarification(buildRetryAnswers(), true);
+                    const answers = buildRetryAnswers();
+                    setDraftAnswers({});
+                    void onRetryAfterClarification(answers, true);
                   }}
                   title="질문을 건너뛰고 바로 생성을 시작합니다."
                 >
@@ -242,7 +240,9 @@ export function GenerationConversationPanel({
                   type="button"
                   className={`primary ${commonStyles.tinyButton}`}
                   onClick={() => {
-                    void onRetryAfterClarification(buildRetryAnswers(), false);
+                    const answers = buildRetryAnswers();
+                    setDraftAnswers({});
+                    void onRetryAfterClarification(answers, false);
                   }}
                 >
                   답변 전송 후 계속 생성

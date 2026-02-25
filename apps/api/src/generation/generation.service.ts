@@ -111,6 +111,19 @@ export class GenerationService {
       sources: prepared.sources
     };
 
+    if (refinePostId) {
+      return {
+        id: `refine-${randomUUID()}`,
+        title: prepared.session.title,
+        body: generatedBody,
+        provider,
+        status: "draft",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        generationMeta: meta
+      };
+    }
+
     return this.persistGeneratedPost(sessionId, prepared.session.title, provider, generatedBody, meta);
   }
 
@@ -160,6 +173,19 @@ export class GenerationService {
       generateImage,
       sources: prepared.sources
     };
+
+    if (refinePostId) {
+      return {
+        id: `refine-${randomUUID()}`,
+        title: prepared.session.title,
+        body: generatedBody,
+        provider,
+        status: "draft",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        generationMeta: meta
+      };
+    }
 
     return this.persistGeneratedPost(sessionId, prepared.session.title, provider, generatedBody, meta);
   }
@@ -708,6 +734,7 @@ export class GenerationService {
         "아래는 이미 작성된 블로그 초안입니다.",
         "이 초안을 기반으로 개선 및 수정 작업을 수행하세요.",
         "초안에 없는 내용을 임의로 추가하지 말고, 아래 소스 데이터와 사용자 지시사항을 반영하여 다듬어 주세요.",
+        "IMPORTANT: 반드시 수정된 전체 마크다운 본문을 완성된 형태로 처음부터 끝까지 출력해야 합니다. 변경된 부분만 출력하거나 중간 부분을 생략(...)해서는 절대 안 됩니다.",
         "",
         refinePostBody,
         ""
@@ -735,31 +762,7 @@ export class GenerationService {
       evidence,
     ].join("\n\n");
 
-    const maxPromptChars = Number.parseInt(process.env.PROMPT_MAX_CHARS ?? "32000", 10);
-    if (fullContent.length <= maxPromptChars) {
-      return fullContent;
-    }
-
-    // 압축 모드 (너무 길 때)
-    const compactItems = normalizedItems.map((item) => ({
-      ...item,
-      body: item.body.slice(0, 240)
-    }));
-
-    const compactContent = [
-      ...(refinePreamble ? [refinePreamble] : []),
-      ...(instructionBlock ? [instructionBlock] : []),
-      ...basePrompt,
-      "[COMPACT EVIDENCE INPUT]",
-      "입력 데이터가 길어 압축 모드로 전환되었습니다.",
-      "입력 데이터가 다소 압축된 점을 감안하여 핵심 내용을 놓치지 않도록 주의하세요.",
-      ...compactItems.map(
-        (item) =>
-          `${item.citationId} | ${item.monthBucket} | ${item.theme} | ${item.sourceName}/${item.sourceType}/${item.kind} | ${item.title}\n${item.body}`
-      )
-    ].join("\n\n");
-
-    return compactContent;
+    return fullContent;
   }
 
   private loadPromptGuidanceBlocks(): string[] {

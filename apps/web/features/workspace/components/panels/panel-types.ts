@@ -108,6 +108,8 @@ export type EditorPanelProps = GenerationPanelProps & {
   onReviewPost: () => Promise<void>;
   onApplySuggestion: (index: number) => void;
   setReviewResult: (result: BlogReviewResult | null) => void;
+  refinedPostBody: string | null;
+  setRefinedPostBody: (body: string | null) => void;
 };
 
 export type PostsPanelProps = {
