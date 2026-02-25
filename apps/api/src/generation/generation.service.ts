@@ -58,12 +58,12 @@ export class GenerationService {
   private static readonly promptGuidanceFiles = [
     "rules/security.md",
     "AGENTS.md",
-    "rules/blog-input-analysis.md",
+    "rules/blog-clarification.md",
     "rules/blog.md",
     "rules/blog-prompt.md",
     "review-guide/blog.md"
   ];
-  private static readonly defaultClarificationMaxTurns = 3;
+  private static readonly defaultClarificationMaxTurns = 5;
 
   constructor(
     private readonly databaseService: DatabaseService,
@@ -499,12 +499,10 @@ export class GenerationService {
             ...(rationale ? { rationale } : {})
           };
           return nextQuestion;
-        })
-        .slice(0, 2);
+        });
 
       const questions = normalizedQuestions
-        .filter((question): question is GenerationClarificationQuestion => question !== null)
-        .slice(0, 2);
+        .filter((question): question is GenerationClarificationQuestion => question !== null);
 
       if (questions.length === 0) {
         continue;
