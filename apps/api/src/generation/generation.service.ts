@@ -432,7 +432,6 @@ export class GenerationService {
     clarificationContext: GenerationClarificationContext
   ): string {
     const evidenceLines = items
-      .slice(0, 20)
       .map((item) => `- [${item.citationId}] ${item.monthBucket} | ${item.theme} | ${item.title}`)
       .join("\n");
     const answeredLines = clarificationContext.answers.length > 0
@@ -779,6 +778,7 @@ export class GenerationService {
       "",
       "[OPERATING GUIDELINES (path only)]",
       ...otherGuidanceFiles.map((filePath) => `- ${filePath}`),
+      "[CONTENT ITEMS FROM DATA SOURCES]",
       ""
     ];
   }
