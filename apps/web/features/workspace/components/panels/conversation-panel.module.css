@@ -85,3 +85,7 @@
     display: flex;
     justify-content: flex-end;
 }
+
+.actionButtonMargin {
+    margin-right: 8px;
+}

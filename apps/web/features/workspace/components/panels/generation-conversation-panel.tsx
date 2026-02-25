@@ -230,12 +230,11 @@ export function GenerationConversationPanel({
               <div className={styles.conversationActions}>
                 <button
                   type="button"
-                  className={`secondary ${commonStyles.tinyButton}`}
+                  className={`secondary ${commonStyles.tinyButton} ${styles.actionButtonMargin}`}
                   onClick={() => {
                     void onRetryAfterClarification(buildRetryAnswers(), true);
                   }}
                   title="질문을 건너뛰고 바로 생성을 시작합니다."
-                  style={{ marginRight: '8px' }}
                 >
                   답변 없이 바로 생성
                 </button>

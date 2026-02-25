@@ -63,3 +63,43 @@
     display: flex;
     justify-content: flex-end;
 }
+
+.reviewContentWrapper {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.genPanelActions {
+    display: flex;
+    gap: 8px;
+    padding: 8px 10px 4px;
+}
+
+.reviewDraftBtn {
+    flex: 1;
+}
+
+.reviewingHint {
+    padding: 8px;
+}
+
+.suggestionsList {
+    overflow-y: auto;
+    flex: 1;
+    padding-right: 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.noSuggestionsHint {
+    padding: 8px;
+    margin: 0;
+}
+
+.notReviewedHint {
+    padding: 16px 8px;
+    margin: 0;
+}
