@@ -115,6 +115,8 @@ export default function HomePage() {
             onReviewPost={controller.onReviewPost}
             onApplySuggestion={controller.onApplySuggestion}
             setReviewResult={controller.setReviewResult}
+            refinedPostBody={controller.refinedPostBody}
+            setRefinedPostBody={controller.setRefinedPostBody}
             genPanelOpen={controller.genPanelOpen}
             setGenPanelOpen={controller.setGenPanelOpen}
             generateMode={controller.generateMode}

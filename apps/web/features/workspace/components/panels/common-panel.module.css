@@ -37,7 +37,7 @@
     flex-shrink: 0;
     height: 100%;
     min-height: 0;
-    overflow-y: auto;
+    overflow: hidden;
     padding-right: 4px;
 }
 
@@ -121,6 +121,11 @@
     transition: flex 0.2s ease, min-height 0.2s ease, padding 0.2s ease;
     min-height: 0;
     flex-shrink: 0;
+}
+
+.collapsiblePanel:not(.collapsed) {
+    flex: 1;
+    overflow-y: auto;
 }
 
 .collapsiblePanel.collapsed {

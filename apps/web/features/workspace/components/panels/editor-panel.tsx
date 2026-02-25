@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
+import * as Diff from "diff";
 import { MarkdownEditor } from "../../../../components/markdown-editor";
 import { MarkdownViewer } from "../../../../components/markdown-viewer";
 import { type EditorPanelProps } from "./panel-types";
@@ -32,6 +33,8 @@ export function EditorPanel({
   onReviewPost,
   onApplySuggestion,
   setReviewResult,
+  refinedPostBody,
+  setRefinedPostBody,
   ...genProps
 }: EditorPanelProps) {
   const hasConversationPanel = Boolean(clarification) || clarificationConversation.length > 0;
@@ -41,7 +44,9 @@ export function EditorPanel({
 
   const editorRef = useRef<HTMLTextAreaElement | null>(null);
   const viewerRef = useRef<HTMLDivElement | null>(null);
-  const syncingFromRef = useRef<"editor" | "viewer" | null>(null);
+  const refineOriginalRef = useRef<HTMLDivElement | null>(null);
+  const refineNewRef = useRef<HTMLDivElement | null>(null);
+  const syncingFromRef = useRef<"editor" | "viewer" | "refine-original" | "refine-new" | null>(null);
 
   useEffect(() => {
     if (!hasConversationPanel) {
@@ -54,7 +59,7 @@ export function EditorPanel({
     }
   }, [clarification, hasConversationPanel]);
 
-  const syncScroll = (source: HTMLElement, target: HTMLElement, from: "editor" | "viewer"): void => {
+  const syncScroll = (source: HTMLElement, target: HTMLElement, from: "editor" | "viewer" | "refine-original" | "refine-new"): void => {
     if (syncingFromRef.current && syncingFromRef.current !== from) {
       return;
     }
@@ -81,6 +86,11 @@ export function EditorPanel({
   }, [editorMode, postBodyDraft]);
 
   const hasDraftContent = postBodyDraft.trim().length > 0 || generatedPost !== null;
+
+  const diffChunks = useMemo(() => {
+    if (refinedPostBody === null) return [];
+    return Diff.diffLines(postBodyDraft, refinedPostBody);
+  }, [postBodyDraft, refinedPostBody]);
 
   return (
     <div className={`${commonStyles.workspaceBody} ${commonStyles.card} ${commonStyles.editorWorkspace} `}>
@@ -114,39 +124,113 @@ export function EditorPanel({
               </div>
             </div>
 
-            <div
-              className={`${styles.mdPane} ${editorMode === "split" ? styles.mdPaneSplit : ""} ${!isRightSidebarOpen ? styles.expanded : ""} `}
-            >
-              {editorMode !== "preview" ? (
-                <MarkdownEditor
-                  editorRef={editorRef}
-                  className={styles.constrainedEditor}
-                  onScroll={(event) => {
-                    if (editorMode !== "split" || !viewerRef.current) {
-                      return;
-                    }
-                    syncScroll(event.currentTarget, viewerRef.current, "editor");
-                  }}
-                  value={postBodyDraft}
-                  onChange={setPostBodyDraft}
-                />
-              ) : null}
-              {editorMode !== "edit" ? (
-                <MarkdownViewer
-                  viewerRef={viewerRef}
-                  className={styles.constrainedViewer}
-                  onScroll={(event) => {
-                    if (editorMode !== "split" || !editorRef.current) {
-                      return;
-                    }
-                    syncScroll(event.currentTarget, editorRef.current, "viewer");
-                  }}
-                  content={postBodyDraft}
-                  flashHeading={flashHeading}
-                  flashCitation={flashCitation}
-                />
-              ) : null}
-            </div>
+            {refinedPostBody !== null ? (
+              <div className={styles.refineDiffContainer}>
+                <div className={styles.refineDiffHeader}>
+                  <h3>Refined Draft Review</h3>
+                  <div className={styles.refineDiffActions}>
+                    <button
+                      type="button"
+                      className={`primary ${commonStyles.tinyButton}`}
+                      onClick={() => {
+                        setPostBodyDraft(refinedPostBody);
+                        setRefinedPostBody(null);
+                        void genProps.onSavePost();
+                      }}
+                    >
+                      Apply Changes
+                    </button>
+                    <button
+                      type="button"
+                      className={`secondary ${commonStyles.tinyButton}`}
+                      onClick={() => setRefinedPostBody(null)}
+                    >
+                      Discard
+                    </button>
+                  </div>
+                </div>
+                <div className={styles.refineDiffSplit}>
+                  <div className={styles.refineDiffOriginal}>
+                    <h4>Original</h4>
+                    <div
+                      className={styles.diffList}
+                      ref={refineOriginalRef}
+                      onScroll={(event) => {
+                        if (!refineNewRef.current) return;
+                        syncScroll(event.currentTarget, refineNewRef.current, "refine-original");
+                      }}
+                    >
+                      {diffChunks.map((chunk, index) => {
+                        if (chunk.added) return null;
+                        return (
+                          <MarkdownViewer
+                            key={`orig-${index}`}
+                            content={chunk.value}
+                            className={`${styles.diffChunkViewer} ${chunk.removed ? styles.diffOriginal : styles.diffUnchanged}`}
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div className={styles.refineDiffNew}>
+                    <h4>Refined Output</h4>
+                    <div
+                      className={styles.diffList}
+                      ref={refineNewRef}
+                      onScroll={(event) => {
+                        if (!refineOriginalRef.current) return;
+                        syncScroll(event.currentTarget, refineOriginalRef.current, "refine-new");
+                      }}
+                    >
+                      {diffChunks.map((chunk, index) => {
+                        if (chunk.removed) return null;
+                        return (
+                          <MarkdownViewer
+                            key={`new-${index}`}
+                            content={chunk.value}
+                            className={`${styles.diffChunkViewer} ${chunk.added ? styles.diffSuggested : styles.diffUnchanged}`}
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div
+                className={`${styles.mdPane} ${editorMode === "split" ? styles.mdPaneSplit : ""} ${!isRightSidebarOpen ? styles.expanded : ""} `}
+              >
+                {editorMode !== "preview" ? (
+                  <MarkdownEditor
+                    editorRef={editorRef}
+                    className={styles.constrainedEditor}
+                    onScroll={(event) => {
+                      if (editorMode !== "split" || !viewerRef.current) {
+                        return;
+                      }
+                      syncScroll(event.currentTarget, viewerRef.current, "editor");
+                    }}
+                    value={postBodyDraft}
+                    onChange={setPostBodyDraft}
+                  />
+                ) : null}
+                {editorMode !== "edit" ? (
+                  <MarkdownViewer
+                    viewerRef={viewerRef}
+                    className={styles.constrainedViewer}
+                    onScroll={(event) => {
+                      if (editorMode !== "split" || !editorRef.current) {
+                        return;
+                      }
+                      syncScroll(event.currentTarget, editorRef.current, "viewer");
+                    }}
+                    content={postBodyDraft}
+                    flashHeading={flashHeading}
+                    flashCitation={flashCitation}
+                  />
+                ) : null}
+              </div>
+            )}
           </>
         ) : clarification ? (
           <p className={commonStyles.editorEmptyHint}>에이전트 질문에 답변한 뒤 계속 생성 버튼을 눌러 초안을 이어서 만드세요.</p>

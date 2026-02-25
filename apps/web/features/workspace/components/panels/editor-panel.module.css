@@ -124,3 +124,114 @@
         overflow-y: auto;
     }
 }
+
+.refineDiffContainer {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    flex: 1;
+    min-height: 0;
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+}
+
+.refineDiffHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-3) var(--space-4);
+    background: var(--light-surface);
+    border-bottom: 1px solid var(--border);
+}
+
+.refineDiffHeader h3 {
+    margin: 0;
+    font-size: 1rem;
+    color: var(--accent);
+}
+
+.refineDiffActions {
+    display: flex;
+    gap: var(--space-2);
+}
+
+.refineDiffSplit {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1px;
+    background: var(--border);
+    flex: 1;
+    min-height: 0;
+}
+
+.refineDiffOriginal,
+.refineDiffNew {
+    display: flex;
+    flex-direction: column;
+    background: var(--surface);
+    min-height: 0;
+}
+
+.refineDiffOriginal h4,
+.refineDiffNew h4 {
+    margin: 0;
+    padding: var(--space-2) var(--space-3);
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid var(--border);
+    background: var(--light-surface);
+    color: var(--muted);
+}
+
+.refineDiffOriginal h4 {
+    color: #d32f2f;
+}
+
+.refineDiffNew h4 {
+    color: #2e7d32;
+}
+
+@media (max-width: 900px) {
+    .refineDiffSplit {
+        grid-template-columns: 1fr;
+        grid-template-rows: 1fr 1fr;
+    }
+}
+
+.diffList {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 8px 0;
+    background: #fff;
+}
+
+.diffChunkViewer {
+    min-height: auto !important;
+    border: none !important;
+    border-radius: 0 !important;
+    padding: 4px 12px !important;
+    margin: 0 !important;
+    background: transparent !important;
+    overflow: visible !important;
+}
+
+.diffOriginal {
+    background: #ffe2df !important;
+    border-left: 3px solid #fbbeb9 !important;
+}
+
+.diffSuggested {
+    background: #d5f5e6 !important;
+    border-left: 3px solid #86a097 !important;
+}
+
+.diffUnchanged {
+    opacity: 0.8;
+}

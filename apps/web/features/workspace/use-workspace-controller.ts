@@ -85,6 +85,7 @@ export function useWorkspaceController() {
   const [flashCitation, setFlashCitation] = useState(false);
   const [postTitleDraft, setPostTitleDraft] = useState("");
   const [postBodyDraft, setPostBodyDraft] = useState("");
+  const [refinedPostBody, setRefinedPostBody] = useState<string | null>(null);
   const [postStatusDraft, setPostStatusDraft] = useState<"draft" | "published">("draft");
   const [clarification, setClarification] = useState<GenerationClarificationResponse | null>(null);
   const [clarificationAnswers, setClarificationAnswers] = useState<GenerationClarificationAnswer[]>([]);
@@ -360,6 +361,7 @@ export function useWorkspaceController() {
       setGeneratedPost(null);
       setPostTitleDraft("");
       setPostBodyDraft("");
+      setRefinedPostBody(null);
       setPostStatusDraft("draft");
       setRevisions([]);
       setReviewResult(null);
@@ -374,6 +376,7 @@ export function useWorkspaceController() {
     setGeneratedPost(post);
     setPostTitleDraft(post.title);
     setPostBodyDraft(post.body);
+    setRefinedPostBody(null);
     setPostStatusDraft(post.status);
     setSelectedPostId(post.id);
     setActiveRevisionId(null);
@@ -902,14 +905,22 @@ export function useWorkspaceController() {
               } else if (payload.type === "chunk") {
                 if (!receivedChunk) {
                   receivedChunk = true;
-                  setGeneratedPost(null);
-                  setSelectedPostId("");
-                  setActiveRevisionId(null);
-                  setPostStatusDraft("draft");
-                  setPostTitleDraft(selectedSession?.title ?? "Streaming Draft");
-                  setPostBodyDraft(payload.chunk);
+                  if (generateMode === "refine") {
+                    setRefinedPostBody(payload.chunk);
+                  } else {
+                    setGeneratedPost(null);
+                    setSelectedPostId("");
+                    setActiveRevisionId(null);
+                    setPostStatusDraft("draft");
+                    setPostTitleDraft(selectedSession?.title ?? "Streaming Draft");
+                    setPostBodyDraft(payload.chunk);
+                  }
                 } else {
-                  setPostBodyDraft((current) => current + payload.chunk);
+                  if (generateMode === "refine") {
+                    setRefinedPostBody((current) => (current ?? "") + payload.chunk);
+                  } else {
+                    setPostBodyDraft((current) => current + payload.chunk);
+                  }
                 }
               } else if (payload.type === "complete") {
                 completed = true;
@@ -917,6 +928,9 @@ export function useWorkspaceController() {
 
                 if (isGenerationClarificationResponse(post)) {
                   applyClarification(post);
+                } else if (generateMode === "refine") {
+                  setStatus("Refinement generated");
+                  pushToast("Refinement generated. Please review and apply.", "success");
                 } else {
                   setClarification(null);
                   setClarificationAnswers([]);
@@ -1174,6 +1188,7 @@ export function useWorkspaceController() {
     flashCitation,
     postTitleDraft,
     postBodyDraft,
+    refinedPostBody,
     postStatusDraft,
     revisions,
     toasts,
@@ -1215,6 +1230,7 @@ export function useWorkspaceController() {
     setPostStatusDraft,
     setPostTitleDraft,
     setPostBodyDraft,
+    setRefinedPostBody,
     setGeneratedPost,
     setGenPanelOpen,
     setSelectedSessionId,
