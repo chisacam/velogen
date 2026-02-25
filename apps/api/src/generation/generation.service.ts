@@ -623,7 +623,7 @@ export class GenerationService {
     const allowedProviders: AgentProvider[] = ["mock", "claude", "codex", "opencode", "gemini"];
     const provider = allowedProviders.includes(providerParam as AgentProvider) ? (providerParam as AgentProvider) : "mock";
     const tone = typeof meta.tone === "string" ? meta.tone : "friendly";
-    const format = typeof meta.format === "string" ? meta.format : "newsletter";
+    const format = typeof meta.format === "string" ? meta.format : "blog";
     const userInstruction = typeof meta.userInstruction === "string" ? meta.userInstruction : "";
 
     const reviewRulesPath = "rules/blog-review.md";

@@ -37,12 +37,11 @@ export function ReviewPanel({
             </div>
 
             {isOpen && (
-                <div className="reviewContent" style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
-                    <div className={styles.genPanelActions} style={{ padding: '8px 10px 4px' }}>
+                <div className={styles.reviewContentWrapper}>
+                    <div className={styles.genPanelActions}>
                         <button
                             type="button"
-                            className={`primary ${commonStyles.tinyButton}`}
-                            style={{ flex: 1 }}
+                            className={`primary ${commonStyles.tinyButton} ${styles.reviewDraftBtn}`}
                             onClick={() => void onReviewPost()}
                             disabled={isReviewing || !postBodyDraft}
                         >
@@ -56,9 +55,9 @@ export function ReviewPanel({
                     </div>
 
                     {isReviewing ? (
-                        <p className={commonStyles.editorEmptyHint} style={{ padding: "8px" }}>AI가 글을 리뷰하고 있습니다...</p>
+                        <p className={`${commonStyles.editorEmptyHint} ${styles.reviewingHint}`}>AI가 글을 리뷰하고 있습니다...</p>
                     ) : reviewResult && reviewResult.suggestions ? (
-                        <div className="suggestionsList" style={{ overflowY: "auto", flex: 1, paddingRight: "4px", display: "flex", flexDirection: "column", gap: "8px" }}>
+                        <div className={styles.suggestionsList}>
                             {reviewResult.suggestions.length > 0 ? (
                                 reviewResult.suggestions.map((suggestion: BlogReviewSuggestion, index: number) => {
                                     const isApplyable = postBodyDraft.includes(suggestion.originalText);
@@ -93,11 +92,11 @@ export function ReviewPanel({
                                     );
                                 })
                             ) : (
-                                <p className={commonStyles.editorEmptyHint} style={{ padding: "8px", margin: 0 }}>개선 제안이 없습니다.</p>
+                                <p className={`${commonStyles.editorEmptyHint} ${styles.noSuggestionsHint}`}>개선 제안이 없습니다.</p>
                             )}
                         </div>
                     ) : (
-                        <p className={commonStyles.editorEmptyHint} style={{ padding: "16px 8px", margin: 0 }}>아직 리뷰를 진행하지 않았습니다. 위에 있는 버튼을 클릭해 리뷰를 시작하세요.</p>
+                        <p className={`${commonStyles.editorEmptyHint} ${styles.notReviewedHint}`}>아직 리뷰를 진행하지 않았습니다. 위에 있는 버튼을 클릭해 리뷰를 시작하세요.</p>
                     )}
                 </div>
             )}

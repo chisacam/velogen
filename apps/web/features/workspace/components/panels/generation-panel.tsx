@@ -37,16 +37,16 @@ export function GenerationPanel({
           onClick={() => setGenPanelOpen(!genPanelOpen)}
           title="Generation settings"
         >
-          <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            {isGenerating || isGeneratingImages ? <div className={styles.collapsedSpinner} style={{ width: 16, height: 16, borderWidth: 2 }} /> : null}
+          <span className={styles.genPanelTitleWrapper}>
+            {isGenerating || isGeneratingImages ? <div className={`${styles.collapsedSpinner} ${styles.genCollapsedSpinnerWrapper}`} /> : null}
             Generation Settings
           </span>
         </button>
       </div>
 
       {genPanelOpen && (
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
-          <div className={styles.genPanelBody} style={{ paddingTop: '8px' }}>
+        <div className={styles.genContentWrapper}>
+          <div className={`${styles.genPanelBody} ${styles.genPanelBodyPadding}`}>
             <div className={styles.genPanelRow}>
               <div className={styles.instructionModeRow}>
                 <span className={styles.instructionLabel}>Mode</span>
@@ -145,7 +145,7 @@ export function GenerationPanel({
           </div>
 
           <div className={styles.genPanelActions}>
-            <button type="button" className={`primary ${commonStyles.tinyButton}`} style={{ flex: 1 }} onClick={() => void onGenerate()} disabled={isGenerating}>
+            <button type="button" className={`primary ${commonStyles.tinyButton} ${styles.genButtonFlex}`} onClick={() => void onGenerate()} disabled={isGenerating}>
               {isGenerating ? (
                 <span className={styles.btnSpinner}>
                   Generating

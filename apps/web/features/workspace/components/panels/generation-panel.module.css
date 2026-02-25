@@ -141,6 +141,33 @@
     line-height: 1.4;
 }
 
+.genPanelTitleWrapper {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.genCollapsedSpinnerWrapper {
+    width: 16px;
+    height: 16px;
+    border-width: 2px;
+}
+
+.genContentWrapper {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.genPanelBodyPadding {
+    padding-top: 8px;
+}
+
+.genButtonFlex {
+    flex: 1;
+}
+
 .genPanelRow {
     display: flex;
     flex-direction: column;

@@ -128,7 +128,7 @@ export function SourcesPanel({
                 <div>
                   <strong>{source.name}</strong>
                   <p>
-                    <span style={{ color: "var(--accent)" }}>{source.type}</span> | {onFormatSourceDisplay(source)}
+                    <span className={commonStyles.accentText}>{source.type}</span> | {onFormatSourceDisplay(source)}
                   </p>
                 </div>
                 <div className="row">
@@ -163,7 +163,7 @@ export function SourcesPanel({
                 <div>
                   <strong>{sessionSource.name}</strong>
                   <p>
-                    <span style={{ color: "var(--accent)" }}>{sessionSource.type}</span> | {fullSource ? onFormatSourceDisplay(fullSource) : sessionSource.sourceId}
+                    <span className={commonStyles.accentText}>{sessionSource.type}</span> | {fullSource ? onFormatSourceDisplay(fullSource) : sessionSource.sourceId}
                   </p>
                 </div>
                 <div className="row">
